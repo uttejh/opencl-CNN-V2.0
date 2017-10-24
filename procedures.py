@@ -86,7 +86,7 @@ class Procedures:
 				if (x[i] < 0)
 					x[i] = 0;
 				else
-					break;
+					continue;
 
 			}
 
