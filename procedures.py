@@ -121,4 +121,40 @@ class Procedures:
 		
 
 		return h_d
+	def relu(x):
+		kernelsource = """
+		    __kernel void relu(
+		    __global float* a,
+		    __global float* b)
+		    {
+		 	int i = get_global_id(0);
+			if ( i < n )
+			{
+				if (x[i] < 0)
+					x[i] = 0;
+				else
+					continue;
 
+			}
+
+
+		     }
+
+
+
+		    """
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
+		program = cl.Program(context, kernelsource).build()
+		h_a =  numpy.random.rand((3,3)).astype(numpy.float32)
+		h_b = numpy.empty((3,3)).astype(numpy.float32)
+
+		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+		d_b =cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+
+		relu = program.relu
+		relu.set_scalar_arg_dtypes([None,None])
+		relu(queue, h_a.shape, None, d_a, d_b,9)
+		queue.finish()
+		cl.enqueue_copy(queue, h_b, d_b)
+		return h_b
