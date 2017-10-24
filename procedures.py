@@ -18,60 +18,107 @@ class Procedures:
 		for x in range(filternum):
 			filters1[x] = []
 			w_bound = numpy.sqrt(6./(n_in+n_out))
-			filters1[x] = numpy.random.uniform(-w_bound,w_bound,(3,3,3))
+			filters1[x] = numpy.random.uniform(-w_bound,w_bound,(3,3))
 
 	# Layer 2 filters
 	def initFilters2(filternum,n_in,n_out):
 		for x in range(filternum):
 			filters2[x] = []
 			w_bound = numpy.sqrt(6./(n_in+n_out))
-			filters2[x] = numpy.random.uniform(-w_bound,w_bound,(3,3,3))
+			filters2[x] = numpy.random.uniform(-w_bound,w_bound,(3,3))
 
 	@staticmethod
 	def convolution(x):
-		
 		kernelsource = """
 		__kernel void convolute(
 		    __global float* a,
 		    __global float* b,
 		    __global float* c,
-		    const unsigned int count)
+		    const unsigned int M,
+		    const unsigned int N)
 		{
-		    int i = get_global_id(0);
-		    if (i < count)
-		    {
-		    	int j=0;
-		    	if(j<3)
-		    	{
-		    		c[i] = a[i] + b[i][j][0];
-		    		j++;
-		    	}
-		    }	
-		        
+		    int i = get_global_id(0); 
+		    int j = get_global_id(1); 
+		    //int k = get_global_id(2); 
+
+		    int l;
+		    int p = 0;
+		    int q = 0;
+		    int k = 0;
+		    int temp = 0.0;
+			
+			if(i < (M-N+1))
+			{
+				p = 0;
+				if(j < (M-N+1))
+				{
+					k = j;
+					temp = 0.0;
+					if(k < N + j)
+					{
+						q = 0;
+						for(l=p;l<N+p;l++)
+						{
+							temp += a[k*N + l] * b[k*N + q];
+							q = q + 1;
+						}
+						k = k + 1;
+					}
+					c[i*(M-N+1) + j] = temp;
+				}
+
+			}
+		    
 		}
 		"""
+
+		# kernelsource="""
+		# 	__kernel void convolute(__global float4* a_vec, __global float4* b_vec,
+		# 	__global float* output, __local float4* partial_dot) {
+
+		# 		int gid = get_global_id(0);
+		# 		int lid = get_local_id(0);
+		# 		int group_size = get_local_size(0);
+
+		# 		partial_dot[lid] = a_vec[gid] * b_vec[gid];
+		# 		barrier(CLK_LOCAL_MEM_FENCE);
+
+		# 		for(int i = group_size/2; i>0; i >>= 1) {
+		# 			if(lid < i) {
+		# 				partial_dot[lid] += partial_dot[lid + i];
+		# 			}
+		# 			barrier(CLK_LOCAL_MEM_FENCE);
+		# 		}
+
+		# 		if(lid == 0) {
+		# 			output[get_group_id(0)] = dot(partial_dot[0], (float4)(1.0f));
+		# 		}
+		# 	}
+		# """
 
 		context = cl.create_some_context()
 		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
-		# h_a = filters1
-		h_a = numpy.random.rand(LENGTH).astype(numpy.float32)
-		h_b = x
-		# h_c = b1
-		h_d = numpy.empty(9).astype(numpy.float32)
+		
+		# for iteration in range()
+
+		# h_a = filters1[0]
+		h_a = numpy.ones((9,9)).astype(numpy.float32)
+		h_b = numpy.ones((3,3)).astype(numpy.float32)
+		# h_c = numpy.empty((3,3)).astype(numpy.float32)
+		h_d = numpy.empty((7,7)).astype(numpy.float32)
 
 		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 		d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
-		# d_c = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_c)
+		# d_c = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_d.nbytes)
 		d_d = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_d.nbytes)
-
+		
 		convolute = program.convolute
-		convolute.set_scalar_arg_dtypes([None, None, None, numpy.uint32])
-		convolute(queue, h_a.shape, None, d_a, d_b, d_d, 9)
+		convolute.set_scalar_arg_dtypes([None, None, None, numpy.uint32, numpy.uint32])
+		convolute(queue, (7,7), None, d_a, d_b, d_d, 9 , 3)
 		queue.finish()
 		cl.enqueue_copy(queue, h_d, d_d)
-		print(h_a)
-		print(x[:9])
+		
 
 		return h_d
 
