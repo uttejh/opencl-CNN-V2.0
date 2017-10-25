@@ -39,35 +39,40 @@ class Procedures:
 		{
 		    int i = get_global_id(0); 
 		    int j = get_global_id(1); 
-		    //int k = get_global_id(2); 
 
 		    int l;
 		    int p = 0;
 		    int q = 0;
-		    int k = 0;
-		    int temp = 0.0;
+		    int k;
+		    int g;
+		    float temp=0.0;
 			
 			if(i < (M-N+1))
 			{
 				p = 0;
+				
 				if(j < (M-N+1))
 				{
-					k = j;
+					g = i;
 					temp = 0.0;
-					if(k < N + j)
+					for(k=0;k<N;k++)
 					{
 						q = 0;
 						for(l=p;l<N+p;l++)
 						{
-							temp += a[k*N + l] * b[k*N + q];
-							q = q + 1;
+							temp += a[g*M + l] * b[g*N + q];
+							q += 1;
 						}
-						k = k + 1;
+						g = g+1;
 					}
+					
 					c[i*(M-N+1) + j] = temp;
+					p=p+1;
 				}
 
 			}
+
+
 		    
 		}
 		"""
@@ -115,7 +120,7 @@ class Procedures:
 		
 		convolute = program.convolute
 		convolute.set_scalar_arg_dtypes([None, None, None, numpy.uint32, numpy.uint32])
-		convolute(queue, (7,7), None, d_a, d_b, d_d, 9 , 3)
+		convolute(queue, (9,9), None, d_a, d_b, d_d, 9, 3)
 		queue.finish()
 		cl.enqueue_copy(queue, h_d, d_d)
 		
