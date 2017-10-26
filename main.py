@@ -1,10 +1,10 @@
 import numpy
 # import pyopencl as cl 
-from time import time
+# from time import time
 from PIL import Image
 import Image
 from procedures import *
-
+import time
 
 numOfFiltersLayer1 = 4
 numOfInputs1 = 2352		#28*28*3
@@ -39,7 +39,7 @@ p.initFilters1(numOfFiltersLayer1, numOfInputs1, numOfOutputs2)
 
 for iterat in range(1):
 	# start timer
-	# start = time.clock()
+	start = time.clock()
 
 	# read input
 	input_data = readImage(iterat)
@@ -49,7 +49,9 @@ for iterat in range(1):
 	# label = read_from....(label_list.txt)
 
 	# Convolute with input and mention no. of filters to be used
-	conv_layer1 = p.convolution(input_data)
-
-	print(conv_layer1)
+	# conv_layer1 = p.convolution(input_data)
+	relu = p.relu(1);
+	print(relu)
+	tt = time.clock() - start
+	print(tt)
 	# print(input_data)

@@ -88,40 +88,54 @@ class Procedures:
 		# for iteration in range()
 
 		# h_a = filters1[0]
-		h_a = numpy.ones((9,9)).astype(numpy.float32)
+
 		h_b = numpy.ones((3,3)).astype(numpy.float32)
 		# h_c = numpy.empty((3,3)).astype(numpy.float32)
-		h_d = numpy.empty((7,7)).astype(numpy.float32)
+		h_d = numpy.empty((26,26)).astype(numpy.float32)
 
-		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+
 		d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
 		# d_c = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_d.nbytes)
 		d_d = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_d.nbytes)
-		
+
 		convolute = program.convolute
 		convolute.set_scalar_arg_dtypes([None, None, None, numpy.uint32, numpy.uint32])
-		convolute(queue, (9,9), None, d_a, d_b, d_d, 9, 3)
-		queue.finish()
-		cl.enqueue_copy(queue, h_d, d_d)
+		out = []
+		for filt in range(512):
+			h_a = numpy.ones((28,28)).astype(numpy.float32)
+			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+			convolute(queue, (28,28), None, d_a, d_b, d_d, 28, 3)
+			queue.finish()
+			cl.enqueue_copy(queue, h_d, d_d)
+			out.append(h_d)		
 		
 
-		return h_d
+		return out
+
+	@staticmethod
 	def relu(x):
 		kernelsource = """
 		    __kernel void relu(
-		    __global float* a,
-		    __global float* b,
-		     const unsigned int n)
+		    __global float* A,
+		    __global float* B,
+		     const unsigned int N)
 		    {
-		 	int i = get_global_id(0);
-			if ( i < n )
-			{
-				if (x[i] < 0)
-					x[i] = 0;
-				else
-					continue;
-
-			}
+		    	//int k;
+			    int i = get_global_id(0);
+			    int j = get_global_id(1);
+			 	if ((i < N) && (j < N))
+			    {
+			        
+			        
+			            if(A[i*N+j] < 0)
+			            {
+			            	B[i*N+j] = 0;
+			            }
+			            else{
+			            	B[i*N+j] = A[i*N+j];
+			            }
+			        
+			    }
 
 
 		     }
@@ -132,15 +146,15 @@ class Procedures:
 		context = cl.create_some_context()
 		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
-		h_a =  numpy.random.rand((3,3)).astype(numpy.float32)
+		h_a =  numpy.random.uniform(-1,1,(3,3)).astype(numpy.float32)
 		h_b = numpy.empty((3,3)).astype(numpy.float32)
 
 		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 		d_b =cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
 
 		relu = program.relu
-		relu.set_scalar_arg_dtypes([None,None])
-		relu(queue, h_a.shape, None, d_a, d_b,9)
+		relu.set_scalar_arg_dtypes([None,None,numpy.uint32])
+		relu(queue, h_a.shape, None, d_a, d_b,3)
 		queue.finish()
 		cl.enqueue_copy(queue, h_b, d_b)
 		return h_b
