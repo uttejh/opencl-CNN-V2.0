@@ -130,7 +130,8 @@ class Procedures:
 		kernelsource = """
 		    __kernel void relu(
 		    __global float* a,
-		    __global float* b)
+		    __global float* b,
+		     const unsigned int n)
 		    {
 		 	int i = get_global_id(0);
 			if ( i < n )
