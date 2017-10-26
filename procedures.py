@@ -1,5 +1,7 @@
 import numpy
 import pyopencl as cl 
+import os
+os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
 
 # Creating a dictionary
 # It consists of our filter weights. Like an array of 3D arrays 
@@ -41,33 +43,35 @@ class Procedures:
 		    int j = get_global_id(1); 
 
 		    int l;
-		    int p = 0;
 		    int q = 0;
 		    int k;
 		    int g;
+		    int fil;
 		    float temp=0.0;
 			
 			if(i < (M-N+1))
-			{
-				p = 0;
-				
+			{				
 				if(j < (M-N+1))
 				{
+
 					g = i;
+					fil = 0;
 					temp = 0.0;
 					for(k=0;k<N;k++)
 					{
+
 						q = 0;
-						for(l=p;l<N+p;l++)
+						for(l=j;l<N+j;l++)
 						{
-							temp += a[g*M + l] * b[g*N + q];
+							
+							temp += a[g*M + l] * b[fil*N + q];
 							q += 1;
+					
 						}
+						fil = fil + 1;
 						g = g+1;
 					}
-					
 					c[i*(M-N+1) + j] = temp;
-					p=p+1;
 				}
 
 			}
@@ -76,30 +80,6 @@ class Procedures:
 		    
 		}
 		"""
-
-		# kernelsource="""
-		# 	__kernel void convolute(__global float4* a_vec, __global float4* b_vec,
-		# 	__global float* output, __local float4* partial_dot) {
-
-		# 		int gid = get_global_id(0);
-		# 		int lid = get_local_id(0);
-		# 		int group_size = get_local_size(0);
-
-		# 		partial_dot[lid] = a_vec[gid] * b_vec[gid];
-		# 		barrier(CLK_LOCAL_MEM_FENCE);
-
-		# 		for(int i = group_size/2; i>0; i >>= 1) {
-		# 			if(lid < i) {
-		# 				partial_dot[lid] += partial_dot[lid + i];
-		# 			}
-		# 			barrier(CLK_LOCAL_MEM_FENCE);
-		# 		}
-
-		# 		if(lid == 0) {
-		# 			output[get_group_id(0)] = dot(partial_dot[0], (float4)(1.0f));
-		# 		}
-		# 	}
-		# """
 
 		context = cl.create_some_context()
 		queue = cl.CommandQueue(context)
