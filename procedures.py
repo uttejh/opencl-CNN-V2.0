@@ -5,10 +5,8 @@ os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
 
 # Creating a dictionary
 # It consists of our filter weights. Like an array of 3D arrays 
-filters1 = dict()
-filters2 = dict()
-b1 = 1 
-LENGTH = 2352
+filters1 = []
+filters2 = []
 
 class Procedures:
 	def __init__(self):
@@ -18,26 +16,27 @@ class Procedures:
 	@staticmethod
 	def initFilters1(filternum,n_in,n_out):
 		for x in range(filternum):
-			filters1[x] = []
+			# filters1[x] = []
 			w_bound = numpy.sqrt(6./(n_in+n_out))
-			filters1[x] = numpy.random.uniform(-w_bound,w_bound,(3,3))
+			filters1.append(numpy.random.uniform(-w_bound,w_bound,(3,3)))
 
 	# Layer 2 filters
 	def initFilters2(filternum,n_in,n_out):
 		for x in range(filternum):
-			filters2[x] = []
+			# filters2[x] = []
 			w_bound = numpy.sqrt(6./(n_in+n_out))
-			filters2[x] = numpy.random.uniform(-w_bound,w_bound,(3,3))
+			filters2.append(numpy.random.uniform(-w_bound,w_bound,(3,3)))
 
 	@staticmethod
-	def convolution(x):
+	def convolution(x, w, bias):
 		kernelsource = """
 		__kernel void convolute(
 		    __global float* a,
 		    __global float* b,
 		    __global float* c,
 		    const unsigned int M,
-		    const unsigned int N)
+		    const unsigned int N,
+		    float bias)
 		{
 		    int row = get_global_id(0); 
 		    int col = get_global_id(1); 
@@ -86,7 +85,7 @@ class Procedures:
 						receptive_row = receptive_row+1;
 					}
 					// assign dot product(receptive field, filter) to C
-					c[row*(M-N+1) + col] = temp;
+					c[row*(M-N+1) + col] = temp + bias;
 				}
 
 			}
@@ -100,34 +99,33 @@ class Procedures:
 		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
 		
-		# for iteration in range()
-
-		# h_a = filters1[0]
-
-		h_b = numpy.ones((3,3)).astype(numpy.float32)
+		# h_b = numpy.ones((3,3)).astype(numpy.float32)
+		h_a = x
 		# h_c = numpy.empty((3,3)).astype(numpy.float32)
 		h_d = numpy.empty((26,26)).astype(numpy.float32)
 
 
-		d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 		# d_c = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_d.nbytes)
 		d_d = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_d.nbytes)
 
 		convolute = program.convolute
-		convolute.set_scalar_arg_dtypes([None, None, None, numpy.uint32, numpy.uint32])
+		convolute.set_scalar_arg_dtypes([None, None, None, numpy.uint32, numpy.uint32, numpy.float32])
 		out = []
 
+		noOffilters = len(w)
 		# Convoluting Image with each filter
-		for filt in range(512):
-			h_a = numpy.ones((28,28)).astype(numpy.float32)
-			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
-			convolute(queue, (28,28), None, d_a, d_b, d_d, 28, 3)
+		for filt in range(noOffilters):
+			# Passing each filter
+			h_b = w[filt]
+			d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+			convolute(queue, (28,28), None, d_a, d_b, d_d, 28, 3, bias)
 			queue.finish()
 			cl.enqueue_copy(queue, h_d, d_d)
+
 			# appending output of convolution with each filter
 			out.append(h_d)		
 		
-
 		return out
 
 	@staticmethod
@@ -140,7 +138,7 @@ class Procedures:
 		    {
 			    int i = get_global_id(0);
 			    int j = get_global_id(1);
-			    
+
 			 	if ((i < N) && (j < N))
 			    {
 			           
@@ -155,23 +153,37 @@ class Procedures:
 			    }
 
 
-		     }
-
-
-
+		    }
 		    """
+
+		shape = len(x[0])
+
 		context = cl.create_some_context()
 		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
-		h_a =  numpy.random.uniform(-1,1,(3,3)).astype(numpy.float32)
-		h_b = numpy.empty((3,3)).astype(numpy.float32)
+		# h_a =  numpy.random.uniform(-1,1,(3,3)).astype(numpy.float32)
+		h_b = numpy.empty((shape,shape)).astype(numpy.float32)
 
-		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+		
 		d_b =cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
 
 		relu = program.relu
 		relu.set_scalar_arg_dtypes([None,None,numpy.uint32])
-		relu(queue, h_a.shape, None, d_a, d_b,3)
-		queue.finish()
-		cl.enqueue_copy(queue, h_b, d_b)
-		return h_b
+		relu_out = []
+
+		# For each convoluted array
+		for it in range(len(x)):
+			h_a = x[it]
+			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+			relu(queue, h_a.shape, None, d_a, d_b,shape)
+			queue.finish()
+			cl.enqueue_copy(queue, h_b, d_b)
+
+			relu_out.append(h_b)
+
+		return relu_out
+
+	@staticmethod
+	def test(w):
+		for x in range(len(w)):
+			print(w[x])
