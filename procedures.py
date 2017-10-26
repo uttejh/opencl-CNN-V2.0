@@ -39,39 +39,54 @@ class Procedures:
 		    const unsigned int M,
 		    const unsigned int N)
 		{
-		    int i = get_global_id(0); 
-		    int j = get_global_id(1); 
+		    int row = get_global_id(0); 
+		    int col = get_global_id(1); 
 
-		    int l;
-		    int q = 0;
+		    int receptive_col;
+		    int fil_col = 0;
 		    int k;
-		    int g;
-		    int fil;
+		    int receptive_row;
+		    int fil_row;
 		    float temp=0.0;
 			
-			if(i < (M-N+1))
-			{				
-				if(j < (M-N+1))
+			/* Each row must end at M-N+1
+			e.g - for 5*5 i/p with 3*3 filter.
+			The filter must stop before M-N+1 = 3 rd so that from there (3rd) it will increment N times resulting
+			in [(M-N+1)  + N ]= M + 1 (An array starts from 0 so we add 1).
+			Going From TOP to BOTTOM*/
+
+			if(row < (M-N+1))
+			{		
+				// Applying it from LEFT TO RIGHT		
+				if(col < (M-N+1))
 				{
 
-					g = i;
-					fil = 0;
+					// Receptive Field's row. Dimensions same as filters = N*N
+					receptive_row = row;
+
+					// Filter's row. Dim = N*N
+					fil_row = 0;
 					temp = 0.0;
+
+					// Looping N times so that we can move from TOP to BOTTOM 
 					for(k=0;k<N;k++)
 					{
-
-						q = 0;
-						for(l=j;l<N+j;l++)
+						// Looping N times LEFT to RIGHT
+						fil_col = 0;
+						for(receptive_col=col;receptive_col<N+col;receptive_col++)
 						{
-							
-							temp += a[g*M + l] * b[fil*N + q];
-							q += 1;
+							// a consists of N*N Receptive Field and b - Filter - N*N
+							// adding the multiplied values with each iteration until N*N times and
+							// then reinitializing temp to 0
+							temp += a[receptive_row*M + receptive_col] * b[fil_row*N + fil_col];
+							fil_col += 1;
 					
 						}
-						fil = fil + 1;
-						g = g+1;
+						fil_row = fil_row + 1;
+						receptive_row = receptive_row+1;
 					}
-					c[i*(M-N+1) + j] = temp;
+					// assign dot product(receptive field, filter) to C
+					c[row*(M-N+1) + col] = temp;
 				}
 
 			}
@@ -101,12 +116,15 @@ class Procedures:
 		convolute = program.convolute
 		convolute.set_scalar_arg_dtypes([None, None, None, numpy.uint32, numpy.uint32])
 		out = []
+
+		# Convoluting Image with each filter
 		for filt in range(512):
 			h_a = numpy.ones((28,28)).astype(numpy.float32)
 			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 			convolute(queue, (28,28), None, d_a, d_b, d_d, 28, 3)
 			queue.finish()
 			cl.enqueue_copy(queue, h_d, d_d)
+			# appending output of convolution with each filter
 			out.append(h_d)		
 		
 
@@ -120,20 +138,19 @@ class Procedures:
 		    __global float* B,
 		     const unsigned int N)
 		    {
-		    	//int k;
 			    int i = get_global_id(0);
 			    int j = get_global_id(1);
+			    
 			 	if ((i < N) && (j < N))
 			    {
-			        
-			        
-			            if(A[i*N+j] < 0)
-			            {
-			            	B[i*N+j] = 0;
-			            }
-			            else{
-			            	B[i*N+j] = A[i*N+j];
-			            }
+			           
+				    if(A[i*N+j] < 0)
+				    {
+				    	B[i*N+j] = 0; // If negative then substitute with 0
+				    }
+				    else{
+				    	B[i*N+j] = A[i*N+j]; // else - then positive. So, append same value.
+				    }
 			        
 			    }
 
