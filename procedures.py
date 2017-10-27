@@ -85,6 +85,7 @@ class Procedures:
 						receptive_row = receptive_row+1;
 					}
 					// assign dot product(receptive field, filter) to C
+					// SIGMA(W*X) + B
 					c[row*(M-N+1) + col] = temp + bias;
 				}
 
@@ -182,6 +183,73 @@ class Procedures:
 			relu_out.append(h_b)
 
 		return relu_out
+
+	@staticmethod
+	def pooling(x):
+		kernelsource = """
+			__kernel void pool(
+		    __global float* A,
+		    __global float* B,
+		    const unsigned int N)
+		    {
+				int i = get_global_id(0);
+			    int j = get_global_id(1);
+				
+				float t1,t2,t3,t4,t5,t6;
+			    if ((i < N-1) && (i%2 == 0))
+			    {
+					if ((j < N-1) && (j%2 == 0))
+				    {
+						t1 = A[i*N + j];
+						t2 = A[i*N + j+1];
+						t3 = A[(i+1)*N + j];
+						t4 = A[(i+1)*N + j+1];
+						if(t1>t2)
+						{
+							t5 = t1;
+						}
+						else{
+							t5 = t2;
+						}
+
+						if(t3>t4)
+						{
+							t6 = t3;
+						}
+						else{
+							t6 = t4;
+						}
+						int x = (i/2);
+						int y = (j/2);
+						if(t5>t6)
+						{
+							B[x*(N/2) + y] = t5;
+						}else{
+							B[x*(N/2) + y] = t6;
+						}
+				    }
+			    }
+		    }
+		"""
+
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
+		program = cl.Program(context, kernelsource).build()
+
+		h_a =  numpy.random.uniform(0,1,(400,400)).astype(numpy.float32)
+		h_b = numpy.empty((200,200)).astype(numpy.float32)
+
+		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+		d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+
+		pool = program.pool
+		pool.set_scalar_arg_dtypes([None,None,numpy.uint32])
+		pool(queue, h_a.shape, None, d_a, d_b,400)
+		queue.finish()
+		cl.enqueue_copy(queue, h_b, d_b)
+		print h_a
+		return h_b
+
 
 	@staticmethod
 	def test(w):
