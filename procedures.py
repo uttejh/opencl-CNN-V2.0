@@ -314,6 +314,15 @@ class Procedures:
 
 		return pad_out
 
+
+	@staticmethod
+	def dotProduct(x,w):
+		kernelsource = """
+
+		"""
+
+		
+
 	@staticmethod
 	def test(w):
 		for x in range(len(w)):

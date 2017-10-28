@@ -18,6 +18,8 @@ numOfOutputs2 = numOfFiltersLayer1*numOfFiltersLayer1*14*14
 
 b1 = 1.
 b2 = 1.
+bFC = 1.
+bH = 1.
 
 # Reads image and converts it to an array - our input
 def readImage(x):
@@ -76,8 +78,6 @@ for iterat in range(1):
 	# Convolute with input and mention no. of filters to be used
 	conv_layer1 = p.convolution(input_data, filters1, b1, numinputs_conv1, order_conv1)	
 	conv1_shape = array(conv_layer1).shape
-
-	print conv_layer1[0]
 
 	# ------------------------------------------RELU--------------------------------------------------
 
@@ -143,11 +143,51 @@ for iterat in range(1):
 	pool_arr2 = array(pool2)
 	pool2_shape = pool_arr2.shape
 
-	# -----------------------------------END OF SECOND ITERATION----------------------------------------
+	# ---------------------------------- END OF SECOND ITERATION ---------------------------------------
+
+
+	# --------------------------------------------------------------------------------------------------
+	# ------------------------------[ FC --> HIDDEN LAYER --> OUTPUT ]----------------------------------
+	# --------------------------------------------------------------------------------------------------
+
 
 	# ----------------------------------- FULLY CONNECTED LAYER ----------------------------------------
 
 	FC = array(pool2).ravel()
+
+	# ------------------------------------ FC --> Hidden Layer -----------------------------------------
+
+	# Used numpy functions :- since the given input is smaller which therefore takes less
+	# time than a GPU function
+	if iterat == 0:
+		numOfHiddenNeurons = 100
+		numOfOutputNeurons = 10
+
+		weights_FC_to_HL = numpy.random.uniform(-1,1,(numOfHiddenNeurons, FC.shape[0]))
+
+		weights_HL_to_output = numpy.random.uniform(-1,1,(numOfOutputNeurons, numOfHiddenNeurons))
+	
+	HL_WX_plus_b = numpy.dot(weights_FC_to_HL, FC) + bFC
+
+	# applying relu
+	HL_values = numpy.clip(HL_WX_plus_b,0.,float("inf"))
+
+	# ------------------------------------ Hidden Layer --> OUTPUT -------------------------------------
+
+	output_wx_plus_b = numpy.dot(weights_HL_to_output, HL_values) + bH
+
+	# applying relu 
+	output = numpy.clip(output_wx_plus_b,0.,float("inf"))
+
+	# ----------------------------------- END OF FORWARD PROPAGATION -----------------------------------
+
+
+	# --------------------------------------------------------------------------------------------------
+	# ---------------------------------------- BACK PROPAGATION ----------------------------------------
+	# --------------------------------------------------------------------------------------------------
+
+
+	
 
 	tt = time.clock() - start
 	print(tt)
