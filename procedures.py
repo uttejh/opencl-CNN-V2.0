@@ -7,10 +7,8 @@ os.environ['PYOPENCL_CTX'] = '1'
 from numpy import array 
 # Creating a dictionary
 # It consists of our filter weights. Like an array of 3D arrays 
-filters1 = []
-filters2 = []
-context = cl.create_some_context()
-queue = cl.CommandQueue(context)
+# filters1 = []
+# filters2 = []
 
 class Procedures:
 	def __init__(self):
@@ -19,26 +17,30 @@ class Procedures:
 	# Layer 1 filters
 	@staticmethod
 	def initFilters1(filternum,n_in,n_out):
+		filters1 = []
 		for x in range(filternum):
-			# filters1[x] = []
-			w_bound = numpy.sqrt(6./(n_in+n_out))
-			filters1.append(numpy.random.uniform(-w_bound,w_bound,(3,3)))
+			
+			w_bound = numpy.sqrt(6./float(n_in+n_out))
+			filters1.append(numpy.random.uniform(-w_bound,w_bound,(3,3)).astype(numpy.float32))
+		return filters1
 
 	# Layer 2 filters
 	@staticmethod
 	def initFilters2(filternum,n_in,n_out):
+		filters2 = []
 		for x in range(filternum):
 			# filters2[x] = []
-			w_bound = numpy.sqrt(6./(n_in+n_out))
-			filters2.append(numpy.random.uniform(-w_bound,w_bound,(3,3)))
+			w_bound = numpy.sqrt(6./float(n_in+n_out))
+			filters2.append(numpy.random.uniform(-w_bound,w_bound,(3,3)).astype(numpy.float32))
+		return filters2
 
 	@staticmethod
 	def convolution(x, w, bias, num, order):
 		kernelsource = """
 		__kernel void convolute(
-		    __global float* a,
-		    __global float* b,
-		    __global float* c,
+		    __global double* a,
+		    __global double* b,
+		    __global double* c,
 		    const unsigned int M,
 		    const unsigned int N,
 		    float bias)
@@ -91,7 +93,11 @@ class Procedures:
 					}
 					// assign dot product(receptive field, filter) to C
 					// SIGMA(W*X) + B
-					c[row*(M-N+1) + col] = temp + bias;
+					if(isnan(temp) || isinf(temp)){
+						c[row*(M-N+1) + col] = 1.0;
+					}else{
+						c[row*(M-N+1) + col] = temp + bias;
+					}
 				}
 
 			}
@@ -100,14 +106,15 @@ class Procedures:
 		    
 		}
 		"""
-
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
 		
 		F_order = 3
 		
 		out_order = (order - F_order + 1)
 
-		h_d = numpy.empty((out_order,out_order)).astype(numpy.float32)
+		h_d = numpy.empty((out_order,out_order))
 		d_d = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_d.nbytes)
 
 		convolute = program.convolute
@@ -142,8 +149,8 @@ class Procedures:
 	def relu(x, num, order):
 		kernelsource = """
 		    __kernel void relu(
-		    __global float* A,
-		    __global float* B,
+		    __global double* A,
+		    __global double* B,
 		     const unsigned int N)
 		    {
 			    int i = get_global_id(0);
@@ -166,11 +173,11 @@ class Procedures:
 		    }
 		    """
 
-		# context = cl.create_some_context()
-		# queue = cl.CommandQueue(context)
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
 
-		h_b = numpy.empty((order,order)).astype(numpy.float32)		
+		h_b = numpy.empty((order,order))	
 		d_b =cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
 
 		relu = program.relu
@@ -193,14 +200,14 @@ class Procedures:
 	def pooling(x, num, order):
 		kernelsource = """
 			__kernel void pool(
-		    __global float* A,
-		    __global float* B,
+		    __global double* A,
+		    __global double* B,
 		    const unsigned int N)
 		    {
 				int i = get_global_id(0);
 			    int j = get_global_id(1);
 				
-				float t1,t2,t3,t4,t5,t6;
+				double t1,t2,t3,t4,t5,t6;
 			    if ((i < N-1) && (i%2 == 0))
 			    {
 					if ((j < N-1) && (j%2 == 0))
@@ -237,14 +244,14 @@ class Procedures:
 		    }
 		"""
 
-		# context = cl.create_some_context()
-		# queue = cl.CommandQueue(context)
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
 
 		out_order = (order/2)
 		# h_a =  numpy.random.uniform(0,1,(400,400)).astype(numpy.float32)
 		
-		h_b = numpy.empty((out_order,out_order)).astype(numpy.float32)
+		h_b = numpy.empty((out_order,out_order))
 
 		
 		d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
@@ -271,8 +278,8 @@ class Procedures:
 	def pad(x, num, order):
 		kernelsource = """
 			__kernel void pad(
-		    __global float* A,
-		    __global float* B,
+		    __global double* A,
+		    __global double* B,
 		    const unsigned int M)
 		    {
 				int i = get_global_id(0);
@@ -290,10 +297,12 @@ class Procedures:
 				}
 		    }
 		"""
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
 
 		out_order = order + 2
-		h_b = numpy.empty((out_order,out_order)).astype(numpy.float32)
+		h_b = numpy.empty((out_order,out_order))
 		d_b = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_b.nbytes)
 
 		pad = program.pad
@@ -314,14 +323,6 @@ class Procedures:
 
 		return pad_out
 
-
-	@staticmethod
-	def dotProduct(x,w):
-		kernelsource = """
-
-		"""
-
-		
 
 	@staticmethod
 	def test(w):

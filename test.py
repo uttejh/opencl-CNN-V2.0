@@ -1,11 +1,11 @@
-import numpy
+import numpy as np
+from numpy import inf
 import time
+x = np.array([np.inf, -np.inf, np.nan, -128, 128])# Create array with inf values
 
-
-
-x =numpy.random.uniform(-1,1,(10000))
-y = numpy.ones((3,3))
+# print x # Show x array
 start = time.clock()
-z = numpy.clip(x,0.,float("inf"))
-# print z
-print(time.clock() - start)
+x[x == inf] = 0 # Replace inf by 0
+print x
+# print x # Show the result
+print time.clock() - start

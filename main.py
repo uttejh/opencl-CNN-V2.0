@@ -1,20 +1,18 @@
 import numpy
-# import pyopencl as cl 
-# from time import time
 from PIL import Image
 import Image
 from procedures import *
 import time
 from numpy import array
 
-numOfFiltersLayer1 = 4
-numOfFiltersLayer2 = 8
+numOfFiltersLayer1 = 20
+numOfFiltersLayer2 = 40
 
-numOfInputs1 = numOfFiltersLayer1*numOfFiltersLayer1*28*28		
-numOfOutputs1 = numOfFiltersLayer1*numOfFiltersLayer1*28*28	
+numOfInputs1 = numOfFiltersLayer1*28*28		
+numOfOutputs1 = numOfFiltersLayer1*28*28	
 
-numOfInputs2 = numOfFiltersLayer1*numOfFiltersLayer1*14*14		
-numOfOutputs2 = numOfFiltersLayer1*numOfFiltersLayer1*14*14		
+numOfInputs2 = numOfFiltersLayer1*numOfFiltersLayer2*14*14		
+numOfOutputs2 = numOfFiltersLayer1*numOfFiltersLayer2*14*14		
 
 b1 = 1.
 b2 = 1.
@@ -38,10 +36,12 @@ def readImage(x):
 
 p = Procedures()
 
+filters1 = []
+filters2 = []
 # Creating filters for conv layer1
-p.initFilters1(numOfFiltersLayer1, numOfInputs1, numOfOutputs1)
+filters1 = p.initFilters1(numOfFiltersLayer1, numOfInputs1, numOfOutputs1)
 
-p.initFilters2(numOfFiltersLayer2, numOfInputs2, numOfOutputs2)
+filters2 = p.initFilters2(numOfFiltersLayer2, numOfInputs2, numOfOutputs2)
 
 for iterat in range(1):
 	start = time.clock()
@@ -78,7 +78,8 @@ for iterat in range(1):
 	# Convolute with input and mention no. of filters to be used
 	conv_layer1 = p.convolution(input_data, filters1, b1, numinputs_conv1, order_conv1)	
 	conv1_shape = array(conv_layer1).shape
-
+	
+	# print conv_layer1
 	# ------------------------------------------RELU--------------------------------------------------
 
 	numinputs_relu1 = conv1_shape[0]
@@ -163,9 +164,15 @@ for iterat in range(1):
 		numOfHiddenNeurons = 100
 		numOfOutputNeurons = 10
 
-		weights_FC_to_HL = numpy.random.uniform(-1,1,(numOfHiddenNeurons, FC.shape[0]))
+		n_in1 = FC.shape[0]
+		n_out1 = numOfHiddenNeurons
+		w_bound1 = numpy.sqrt(6./float(n_in1+n_out1))
+		weights_FC_to_HL = numpy.random.uniform(-w_bound1,w_bound1,(numOfHiddenNeurons, FC.shape[0]))
 
-		weights_HL_to_output = numpy.random.uniform(-1,1,(numOfOutputNeurons, numOfHiddenNeurons))
+		n_in2 = numOfHiddenNeurons
+		n_out2 = numOfOutputNeurons
+		w_bound2 = numpy.sqrt(6./float(n_in2+n_out2))
+		weights_HL_to_output = numpy.random.uniform(-w_bound2,w_bound2,(numOfOutputNeurons, numOfHiddenNeurons))
 	
 	HL_WX_plus_b = numpy.dot(weights_FC_to_HL, FC) + bFC
 
@@ -179,6 +186,7 @@ for iterat in range(1):
 	# applying relu 
 	output = numpy.clip(output_wx_plus_b,0.,float("inf"))
 
+
 	# ----------------------------------- END OF FORWARD PROPAGATION -----------------------------------
 
 
@@ -186,8 +194,7 @@ for iterat in range(1):
 	# ---------------------------------------- BACK PROPAGATION ----------------------------------------
 	# --------------------------------------------------------------------------------------------------
 
-
-	
-
 	tt = time.clock() - start
 	print(tt)
+
+	print output
