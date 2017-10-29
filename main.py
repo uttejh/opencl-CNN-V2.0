@@ -19,6 +19,8 @@ b2 = 1.
 bFC = 1.
 bH = 1.
 
+alpha = 0.1
+
 # Reads image and converts it to an array - our input
 def readImage(x):
 	# Open Image
@@ -59,6 +61,9 @@ for iterat in range(1):
 	numinputs_pad1 = 1
 	order_pad1 = input_shape1[0]
 
+	# tt = time.clock() - start
+	# print "Reading image: " + str(tt)
+
 	# -----------------------------------------------------------------------------------------------
 	#                     [ PADDING --> CONVOLUTION ] --> RELU --> POOLING (FIRST ITERATION)
 	# -----------------------------------------------------------------------------------------------
@@ -70,6 +75,9 @@ for iterat in range(1):
 	pad_arr1 = array(pad1)
 	pad_shape1 = pad_arr1.shape
 
+	# tt = time.clock() - tt
+	# print "Padding: " + str(tt)
+
 	# ---------------------------------------CONVOLUTION---------------------------------------------
 
 	numinputs_conv1 = 1
@@ -79,6 +87,8 @@ for iterat in range(1):
 	conv_layer1 = p.convolution(input_data, filters1, b1, numinputs_conv1, order_conv1)	
 	conv1_shape = array(conv_layer1).shape
 	
+	# tt = time.clock() - tt
+	# print "CONVOLUTION: " + str(tt)
 	# print conv_layer1
 	# ------------------------------------------RELU--------------------------------------------------
 
@@ -90,6 +100,9 @@ for iterat in range(1):
 	relu_arr1 = array(relu1)
 	relu1_shape = relu_arr1.shape
 
+	# tt = time.clock() - tt
+	# print "RELU: " + str(tt)
+
 	# -----------------------------------------POOLING-------------------------------------------------
 
 	numinputs_pool1 = relu1_shape[0]
@@ -100,7 +113,11 @@ for iterat in range(1):
 	pool_arr1 = array(pool1)
 	pool1_shape = pool_arr1.shape
 
+	# tt = time.clock() - tt
+	# print "POOLING: " + str(tt)
 
+	# x = time.clock() - start
+	# print "One iter time :" + str(x)
 	# -----------------------------------------------------------------------------------------------
 	#                     [ PADDING --> CONVOLUTION ] --> RELU --> POOLING (SECOND ITERATION)
 	# -----------------------------------------------------------------------------------------------
@@ -115,6 +132,9 @@ for iterat in range(1):
 
 	pad2_shape = array(pad2).shape
 
+	# tt = time.clock() - tt
+	# print "Padding: " + str(tt)
+
 	# ---------------------------------------CONVOLUTION---------------------------------------------
 
 	numinputs_conv2 = pad2_shape[0]
@@ -123,6 +143,9 @@ for iterat in range(1):
 	# Convolute with input and mention no. of filters to be used
 	conv_layer2 = p.convolution(pad2, filters2, b2, numinputs_conv2, order_conv2)	
 	conv2_shape = array(conv_layer2).shape
+
+	# tt = time.clock() - tt
+	# print "CONVOLUTION: " + str(tt)
 
 	# ------------------------------------------RELU--------------------------------------------------
 
@@ -134,6 +157,8 @@ for iterat in range(1):
 	relu_arr2 = array(relu2)
 	relu2_shape = relu_arr2.shape		
 
+	# tt = time.clock() - tt
+	# print "RELU: " + str(tt)
 	# -----------------------------------------POOLING-------------------------------------------------
 
 	numinputs_pool2 = relu2_shape[0]
@@ -144,6 +169,11 @@ for iterat in range(1):
 	pool_arr2 = array(pool2)
 	pool2_shape = pool_arr2.shape
 
+	# tt = time.clock() - tt
+	# print "POOLING: " + str(tt)
+
+	# x = time.clock() - x
+	# print "Second iter time :" + str(x)
 	# ---------------------------------- END OF SECOND ITERATION ---------------------------------------
 
 
@@ -156,6 +186,8 @@ for iterat in range(1):
 
 	FC = array(pool2).ravel()
 
+	# tt = time.clock() - tt
+	# print "FC: " + str(tt)
 	# ------------------------------------ FC --> Hidden Layer -----------------------------------------
 
 	# Used numpy functions :- since the given input is smaller which therefore takes less
@@ -179,6 +211,9 @@ for iterat in range(1):
 	# applying relu
 	HL_values = numpy.clip(HL_WX_plus_b,0.,float("inf"))
 
+	# tt = time.clock() - tt
+	# print "FC->H: " + str(tt)
+
 	# ------------------------------------ Hidden Layer --> OUTPUT -------------------------------------
 
 	output_wx_plus_b = numpy.dot(weights_HL_to_output, HL_values) + bH
@@ -186,7 +221,8 @@ for iterat in range(1):
 	# applying relu 
 	output = numpy.clip(output_wx_plus_b,0.,float("inf"))
 
-
+	# tt = time.clock() - tt
+	# print "H->O: " + str(tt)
 	# ----------------------------------- END OF FORWARD PROPAGATION -----------------------------------
 
 
@@ -194,7 +230,37 @@ for iterat in range(1):
 	# ---------------------------------------- BACK PROPAGATION ----------------------------------------
 	# --------------------------------------------------------------------------------------------------
 
+
+	# --------------------------------------------- ERROR ----------------------------------------------
+
+	error = []
+	label = 3
+	for ii in range(numOfOutputNeurons):
+		if ii == label:
+			target = 1.0
+		else:
+			target = 0.0 
+		error.append(0.5*(target - output[ii])**2)
+
+
+	# ------------------------------------- HIDDEN LAYER <-- OUTPUT ------------------------------------
+
+	# Calculating errors for each weight (10*100 weights) at HL
+	Dw_HL_to_output = 0
+
+	for i in range(numOfOutputNeurons):
+		derivative = 1.0 if HL_values[i] <= 0 else 0.0
+		err = error[i]
+		# temp = []
+		for j in range(numOfHiddenNeurons):
+			# E*f`(x)*w 
+			Dw_HL_to_output = (err*derivative*weights_HL_to_output[i][j])
+
+			# ommitted minus from E*f`(x)*w so that 
+			# [weights_HL_to_output = weights_HL_to_output - (-DW)] becomes
+			# [weights_HL_to_output = weights_HL_to_output + DW]
+			weights_HL_to_output[i][j] += alpha*Dw_HL_to_output
+
 	tt = time.clock() - start
 	print(tt)
 
-	print output

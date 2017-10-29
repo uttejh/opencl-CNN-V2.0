@@ -325,6 +325,58 @@ class Procedures:
 
 
 	@staticmethod
+	def derivative(x):
+		kernelsource = """
+			__kernel void derivative(
+		    __global double* A,
+		    __global double* B,
+		     const unsigned int N)
+		    {
+			    int i = get_global_id(0);
+
+			 	if (i < N)
+			    {
+			           
+				    if(A[i] < 0)
+				    {
+				    	B[i] = 0.0; // If negative then substitute with 0
+				    }
+				    else{
+				    	B[i] = 1.0; // else - then positive. So, append 1
+				    }
+			        
+			    }
+
+
+		    }
+		"""
+
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
+		program = cl.Program(context, kernelsource).build()
+		order = len(x)
+		h_a = x
+		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+		h_b = numpy.empty((order))	
+		d_b =cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+
+		derivative = program.derivative
+		derivative.set_scalar_arg_dtypes([None,None,numpy.uint32])
+
+		derivative(queue, h_a.shape, None, d_a, d_b,order)
+		queue.finish()
+		cl.enqueue_copy(queue, h_b, d_b)
+		return h_b
+
+
+	# @staticmethod
+	# def BP_OUTtoHL(m, n, x, w):
+
+
+
+
+
+	@staticmethod
 	def test(w):
 		for x in range(len(w)):
 			print(w[x])
