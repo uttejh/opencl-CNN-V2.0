@@ -14,6 +14,8 @@
                   thisValue = input[ SelectedRow * input_size + SelectedCol ];
                   if (thisValue > maxValue) {
                       maxValue = thisValue;
+                      X = SelectedRow;
+                      Y = SelectedCol;
                   }else if (!thisValue){
                     return;
                   }
@@ -23,8 +25,12 @@
       RowOffset = row/pool_size;  
       ColOffset = col/pool_size;  
     
-      select = RowOffset*input_size/pool_size + ColOffset;
+      select = RowOffset*(input_size/pool_size) + ColOffset;
       output[ select ] = maxValue;
+      
+
+    //a global variable is necessary to save the two variables X and Y.
+
 //    selectors[ globalId ] = selector;
 //    selectors[globalId] = 123;
   }
