@@ -3,8 +3,11 @@
     const int col = get_global_id(1);
     
     int pool_size  = x; //must be a prime number
-    int i,j,RowOffset, ColOffset;
+    int i,j,RowOffset, ColOffset, selectedIndex;
     
+    // so we are saving index values of max pixel values at Index array.
+    int Index[]; //
+    // ?? size of the array?
     float maxValue = 0, thisValue;
     
     if(row % pool_size == 0 && col % pool_size == 0){
@@ -14,8 +17,7 @@
                   thisValue = input[ SelectedRow * input_size + SelectedCol ];
                   if (thisValue > maxValue) {
                       maxValue = thisValue;
-                      X = SelectedRow;
-                      Y = SelectedCol;
+                       selectedIndex =  SelectedRow * input_size + SelectedCol
                   }else if (!thisValue){
                     return;
                   }
@@ -27,6 +29,9 @@
     
       select = RowOffset*(input_size/pool_size) + ColOffset;
       output[ select ] = maxValue;
+     
+      // so we have to save the selected Index of max value in each pooling layer, right? We are saving it in a 1D array for each pooling layer.  
+      Index[row] = selectedInded;
       
 
     //a global variable is necessary to save the two variables X and Y.
