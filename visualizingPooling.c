@@ -18,8 +18,8 @@ for( k=0; k<input_size; k++){
     }
 }
 
-    while(!input[i]){
-        while(!input[i*input_size + j]){
+    while(input[i]){
+        while(input[i*input_size + j]){
 
         // the if statement enters only when we encounter at first element of pool. It indicates that we are ready for pooling
             if(i % pool_size == 0 && j % pool_size == 0){
@@ -43,10 +43,6 @@ for( k=0; k<input_size; k++){
         }
         i++;
     }
-
-
-
-
 return 0;
 }
 
