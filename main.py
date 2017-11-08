@@ -5,6 +5,7 @@ from procedures import *
 import time
 from numpy import array
 
+numpy.set_printoptions(threshold=numpy.nan)
 numOfFiltersLayer1 = 20
 numOfFiltersLayer2 = 40
 
@@ -27,12 +28,12 @@ def readImage(x):
 	image = Image.open('1.jpg')
 
 	# Resize each image to one desired shape
-	# image = image.resize((28,28),Image.ANTIALIAS)
+	image = image.resize((28,28),Image.ANTIALIAS)
 
 	# # Save as ...., "optimize" - reduce size (bytes)
 	# image.save("image_scaled_opt.jpg",optimize=True,quality=95)
 
-	data = numpy.asarray( image, dtype="float32" )
+	data = numpy.array( image, dtype="double" ) 
 	return data
 
 
@@ -40,10 +41,11 @@ p = Procedures()
 
 filters1 = []
 filters2 = []
+fsize = 3
 # Creating filters for conv layer1
-filters1 = p.initFilters1(numOfFiltersLayer1, numOfInputs1, numOfOutputs1)
+filters1 = p.initFilters1(numOfFiltersLayer1, numOfInputs1, numOfOutputs1, fsize)
 
-filters2 = p.initFilters2(numOfFiltersLayer2, numOfInputs2, numOfOutputs2)
+filters2 = p.initFilters2(numOfFiltersLayer2, numOfInputs2, numOfOutputs2, fsize)
 
 for iterat in range(1):
 	start = time.clock()
@@ -84,12 +86,12 @@ for iterat in range(1):
 	order_conv1 = pad_shape1[1]
 
 	# Convolute with input and mention no. of filters to be used
-	conv_layer1 = p.convolution(input_data, filters1, b1, numinputs_conv1, order_conv1)	
+	conv_layer1 = p.convolution(pad1[0], filters1, b1, numinputs_conv1, order_conv1)	
 	conv1_shape = array(conv_layer1).shape
 	
 	# tt = time.clock() - tt
 	# print "CONVOLUTION: " + str(tt)
-	# print conv_layer1
+
 	# ------------------------------------------RELU--------------------------------------------------
 
 	numinputs_relu1 = conv1_shape[0]
@@ -118,6 +120,7 @@ for iterat in range(1):
 
 	# x = time.clock() - start
 	# print "One iter time :" + str(x)
+
 	# -----------------------------------------------------------------------------------------------
 	#                     [ PADDING --> CONVOLUTION ] --> RELU --> POOLING (SECOND ITERATION)
 	# -----------------------------------------------------------------------------------------------
@@ -134,7 +137,7 @@ for iterat in range(1):
 
 	# tt = time.clock() - tt
 	# print "Padding: " + str(tt)
-
+	
 	# ---------------------------------------CONVOLUTION---------------------------------------------
 
 	numinputs_conv2 = pad2_shape[0]
@@ -199,7 +202,7 @@ for iterat in range(1):
 		n_in1 = FC.shape[0]
 		n_out1 = numOfHiddenNeurons
 		w_bound1 = numpy.sqrt(6./float(n_in1+n_out1))
-		weights_FC_to_HL = numpy.random.uniform(-w_bound1,w_bound1,(numOfHiddenNeurons, FC.shape[0]))
+		weights_FC_to_HL = numpy.random.uniform(-w_bound1,w_bound1,(numOfHiddenNeurons, n_in1))
 
 		n_in2 = numOfHiddenNeurons
 		n_out2 = numOfOutputNeurons
@@ -223,6 +226,7 @@ for iterat in range(1):
 
 	# tt = time.clock() - tt
 	# print "H->O: " + str(tt)
+
 	# ----------------------------------- END OF FORWARD PROPAGATION -----------------------------------
 
 
@@ -230,29 +234,47 @@ for iterat in range(1):
 	# ---------------------------------------- BACK PROPAGATION ----------------------------------------
 	# --------------------------------------------------------------------------------------------------
 
+	# --------------------------------------------------------------------------------------------------
+	# -------- [ CONVOLUTION LAYER 1 <-- CONVOLUTION LAYER 2 <-- FC <-- HIDDEN LAYER <-- OUTPUT ] ------
+	# --------------------------------------------------------------------------------------------------
+
+
 
 	# --------------------------------------------- ERROR ----------------------------------------------
 
-	error = []
-	label = 3
-	for ii in range(numOfOutputNeurons):
-		if ii == label:
-			target = 1.0
-		else:
-			target = 0.0 
-		error.append(0.5*(target - output[ii])**2)
+	# error = []
+	# label = 3
+	# for ii in range(numOfOutputNeurons):
+	# 	if ii == label:
+	# 		target = 1.0
+	# 	else:
+	# 		target = 0.0 
+	# 	error.append(0.5*(target - output[ii])**2)
 
 
 	# ------------------------------------- HIDDEN LAYER <-- OUTPUT ------------------------------------
 
 	# Calculating errors for each weight (10*100 weights) at HL
-	Dw_HL_to_output = 0
-
+	# Dw_HL_to_output = 0
+	temp_err = []
+	err = 0
 	for i in range(numOfOutputNeurons):
-		derivative = 1.0 if HL_values[i] <= 0 else 0.0
-		err = error[i]
-		# temp = []
+		
+		# ---------------------------------------- ERROR -----------------------------------------------
+
+		# Dummy label
+		label = 3
+		if i == label:
+			target = 1.0
+		else:
+			target = 0.0
+		err = 0.5*(target - output[i])**2
+
+		derivative = 1.0 if output[i] > 0 else 0.0
+
+		temp = []
 		for j in range(numOfHiddenNeurons):
+
 			# E*f`(x)*w 
 			Dw_HL_to_output = (err*derivative*weights_HL_to_output[i][j])
 
@@ -261,6 +283,66 @@ for iterat in range(1):
 			# [weights_HL_to_output = weights_HL_to_output + DW]
 			weights_HL_to_output[i][j] += alpha*Dw_HL_to_output
 
+			# appending the omitted -ve sign
+			temp.append(-1*Dw_HL_to_output)
+
+		temp_err.append(temp)
+
+	# -------------------------------- FC <-- HIDDEN LAYER ------------------------------------
+
+	# error at hidden layer
+	global_error = []
+
+	for i in range(numOfHiddenNeurons):
+		tempge = 0
+		for j in range(numOfOutputNeurons):
+			tempge += temp_err[j][i]
+		global_error.append(tempge)
+
+
+	# updated weights
+	weights_FC_to_HL, temp_FC_err = p.BP_FC_to_HL(numOfHiddenNeurons, n_in1, global_error, HL_values, weights_FC_to_HL, alpha)
+
+	temp_FC_err = numpy.transpose(temp_FC_err)
+
+	
+	# ---------------------------- CONVOLUTION LAYER 2 <-- FC ---------------------------------
+	
+	# error at FC
+	# global_error_FC=[]
+	loc_err = 0
+	err_into_derivative = []
+
+	for i in range(n_in1):
+		loc_err = numpy.sum(temp_FC_err[i])
+		# global_error_FC.append(loc_err)
+		err_into_derivative.append(loc_err*(1.0 if FC[i] > 0 else 0.0))
+
+	
+	size_pool2 = pool2_shape[1]**2
+	# tempnum = numOfFiltersLayer2*size_pool2
+	range2 = numOfFiltersLayer1*size_pool2
+	
+	for i in range(numOfFiltersLayer2):
+		row = i*range2
+		
+		temp = 0
+		for j in range(range2):
+			temp += err_into_derivative[row + j]
+
+		filto2 = filters2[i]
+		# filters2 weight update
+		filters2[i] = filto2 - alpha*temp*filto2
+
+
+	# ---------------------- CONVOLUTION LAYER 1 <-- CONVOLUTION LAYER 2 --------------------
+	
+
+
 	tt = time.clock() - start
 	print(tt)
+
+
+
+
 
