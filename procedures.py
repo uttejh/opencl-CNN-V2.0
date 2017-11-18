@@ -192,7 +192,7 @@ class Procedures:
 			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 
 			h_b = numpy.empty((order,order))	
-			d_b =cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+			d_b = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_b.nbytes)
 
 			relu(queue, h_a.shape, None, d_a, d_b,order)
 			queue.finish()
@@ -202,109 +202,20 @@ class Procedures:
 
 		return relu_out
 
-	# @staticmethod
-	# def pooling(x, num, order):
-	# 	kernelsource = """
-	# 		__kernel void pool(
-	# 	    __global double* A,
-	# 	    __global double* B,
-	# 	    __global double* C,
-	# 	    const unsigned int N)
-	# 	    {
-	# 			int i = get_global_id(0);
-	# 		    int j = get_global_id(1);
-
-	# 		    int index1;
-	# 		    int index2;
-				
-	# 			double t1,t2,t3,t4,t5,t6;
-	# 		    if ((i < N-1) && (i%2 == 0))
-	# 		    {
-	# 				if ((j < N-1) && (j%2 == 0))
-	# 			    {
-	# 					t1 = A[i*N + j];
-	# 					t2 = A[i*N + j+1];
-	# 					t3 = A[(i+1)*N + j];
-	# 					t4 = A[(i+1)*N + j+1];
-	# 					if(t1>t2)
-	# 					{
-	# 						t5 = t1;
-	# 						index1 = i*N + j;
-	# 					}
-	# 					else{
-	# 						t5 = t2;
-	# 						index1 = i*N + j + 1;
-	# 					}
-
-	# 					if(t3>t4)
-	# 					{
-	# 						t6 = t3;
-	# 						index2 = (i+1)*N + j;
-	# 					}
-	# 					else{
-	# 						t6 = t4;
-	# 						index2 = (i+1)*N + j+1;
-	# 					}
-	# 					int x = (i/2);
-	# 					int y = (j/2);
-	# 					if(t5>t6)
-	# 					{
-	# 						B[x*(N/2) + y] = t5;
-	# 						C[x*(N/2) + y] = index1;
-	# 					}else{
-	# 						B[x*(N/2) + y] = t6;
-	# 						C[x*(N/2) + y] = index2;
-	# 					}
-	# 			    }
-	# 		    }
-	# 	    }
-	# 	"""
-
-	# 	context = cl.create_some_context()
-	# 	queue = cl.CommandQueue(context)
-	# 	program = cl.Program(context, kernelsource).build()
-
-	# 	out_order = (order/2)
-	# 	# h_a =  numpy.random.uniform(0,1,(400,400)).astype(numpy.float32)
-
-	# 	pool = program.pool
-	# 	pool.set_scalar_arg_dtypes([None,None,None,numpy.uint32])
-
-	# 	pool_out = []
-	# 	index = []
-
-	# 	for it in range(num):
-	# 		h_a = x[it]
-	# 		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
-
-	# 		h_b = numpy.empty((out_order,out_order))
-	# 		d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
-
-	# 		h_c = numpy.empty((out_order,out_order))
-	# 		d_c = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_c)
-
-	# 		pool(queue, (order, order), None, d_a, d_b, d_c, order)
-	# 		queue.finish()
-	# 		cl.enqueue_copy(queue, h_b, d_b)
-	# 		cl.enqueue_copy(queue, h_c, d_c)
-
-	# 		pool_out.append(h_b)
-	# 		index.append(h_c)
-
-	# 	return pool_out,index
-
 	@staticmethod
 	def pooling(x, num, order):
 		kernelsource = """
 			__kernel void pool(
 		    __global double* A,
 		    __global double* B,
+		    __global double* C,
 		    const unsigned int N)
 		    {
 				int i = get_global_id(0);
 			    int j = get_global_id(1);
 
-			
+			    int index1;
+			    int index2;
 				
 				double t1,t2,t3,t4,t5,t6;
 			    if ((i < N-1) && (i%2 == 0))
@@ -318,31 +229,31 @@ class Procedures:
 						if(t1>t2)
 						{
 							t5 = t1;
-							
+							index1 = i*N + j;
 						}
 						else{
 							t5 = t2;
-							
+							index1 = i*N + j + 1;
 						}
 
 						if(t3>t4)
 						{
 							t6 = t3;
-							
+							index2 = (i+1)*N + j;
 						}
 						else{
 							t6 = t4;
-							
+							index2 = (i+1)*N + j+1;
 						}
 						int x = (i/2);
 						int y = (j/2);
 						if(t5>t6)
 						{
 							B[x*(N/2) + y] = t5;
-							
+							C[x*(N/2) + y] = index1;
 						}else{
 							B[x*(N/2) + y] = t6;
-							
+							C[x*(N/2) + y] = index2;
 						}
 				    }
 			    }
@@ -357,25 +268,114 @@ class Procedures:
 		# h_a =  numpy.random.uniform(0,1,(400,400)).astype(numpy.float32)
 
 		pool = program.pool
-		pool.set_scalar_arg_dtypes([None,None,numpy.uint32])
+		pool.set_scalar_arg_dtypes([None,None,None,numpy.uint32])
 
 		pool_out = []
+		index = []
 
 		for it in range(num):
 			h_a = x[it]
 			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 
 			h_b = numpy.empty((out_order,out_order))
-			d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+			d_b = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_b.nbytes)
 
+			h_c = numpy.empty((out_order,out_order))
+			d_c = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_c.nbytes)
 
-			pool(queue, (order, order), None, d_a, d_b, order)
+			pool(queue, (order, order), None, d_a, d_b, d_c, order)
 			queue.finish()
 			cl.enqueue_copy(queue, h_b, d_b)
+			cl.enqueue_copy(queue, h_c, d_c)
 
 			pool_out.append(h_b)
+			index.append(h_c)
 
-		return pool_out
+		return pool_out,index
+
+	# @staticmethod
+	# def pooling(x, num, order):
+	# 	kernelsource = """
+	# 		__kernel void pool(
+	# 	    __global double* A,
+	# 	    __global double* B,
+	# 	    const unsigned int N)
+	# 	    {
+	# 			int i = get_global_id(0);
+	# 		    int j = get_global_id(1);
+
+			
+				
+	# 			double t1,t2,t3,t4,t5,t6;
+	# 		    if ((i < N-1) && (i%2 == 0))
+	# 		    {
+	# 				if ((j < N-1) && (j%2 == 0))
+	# 			    {
+	# 					t1 = A[i*N + j];
+	# 					t2 = A[i*N + j+1];
+	# 					t3 = A[(i+1)*N + j];
+	# 					t4 = A[(i+1)*N + j+1];
+	# 					if(t1>t2)
+	# 					{
+	# 						t5 = t1;
+							
+	# 					}
+	# 					else{
+	# 						t5 = t2;
+							
+	# 					}
+
+	# 					if(t3>t4)
+	# 					{
+	# 						t6 = t3;
+							
+	# 					}
+	# 					else{
+	# 						t6 = t4;
+							
+	# 					}
+	# 					int x = (i/2);
+	# 					int y = (j/2);
+	# 					if(t5>t6)
+	# 					{
+	# 						B[x*(N/2) + y] = t5;
+							
+	# 					}else{
+	# 						B[x*(N/2) + y] = t6;
+							
+	# 					}
+	# 			    }
+	# 		    }
+	# 	    }
+	# 	"""
+
+	# 	context = cl.create_some_context()
+	# 	queue = cl.CommandQueue(context)
+	# 	program = cl.Program(context, kernelsource).build()
+
+	# 	out_order = (order/2)
+	# 	# h_a =  numpy.random.uniform(0,1,(400,400)).astype(numpy.float32)
+
+	# 	pool = program.pool
+	# 	pool.set_scalar_arg_dtypes([None,None,numpy.uint32])
+
+	# 	pool_out = []
+
+	# 	for it in range(num):
+	# 		h_a = x[it]
+	# 		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+
+	# 		h_b = numpy.empty((out_order,out_order))
+	# 		d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+
+
+	# 		pool(queue, (order, order), None, d_a, d_b, order)
+	# 		queue.finish()
+	# 		cl.enqueue_copy(queue, h_b, d_b)
+
+	# 		pool_out.append(h_b)
+
+	# 	return pool_out
 
 
 	@staticmethod
@@ -553,21 +553,173 @@ class Procedures:
 
 
 	# @staticmethod
-	# def BP_conv(w):
+	# def conv_global_error(error, index, filters, num1, num2, shape, forder):
 	# 	kernelsource = """
-	# 		__kernel void bpconv(
-	# 		__global double* a,
+	# 		__kernel void converror(
+	# 	    __global double* error,
+	# 	    __global double* index,
+	# 	    __global double* filter,
+	# 	    __global double* out,
+	# 	    const unsigned int M,
+	# 	    const unsigned int N)
+	# 	    {
+	# 	    	int row = get_global_id(0);
+	# 	    	int col = get_global_id(1);
+
+	# 	    	int index_row;
+	# 	    	int index_col;
+	# 	    	int receptive_row;
+	# 	    	int receptive_col;
+	# 	    	int fil_col;
+	# 	    	int l;
+	# 	    	int k;
+	# 	    	double temp;
+
+	# 			if(row < (M-N+1))
+	# 			{
+	# 				index_row = row/2;
+	# 				//printf("-%d-",index_row);
+	# 				if(col < (M-N+1))
+	# 				{
+	# 					receptive_row = row;
+	# 					index_col = col/2;
+	# 					temp = 0.0;
+	# 					for(k=0;k<N;k++)
+	# 					{ 
+	# 						l=0;
+	# 						fil_col = 0;
+	# 						for(receptive_col=col;receptive_col<N+col;receptive_col++){
+	# 							//barrier(CLK_GLOBAL_MEM_FENCE);
+	# 							if(receptive_row*M+receptive_col == (int)index[index_row*((M-N+1)/2)+index_col+l]){
+									
+	# 								temp = out[receptive_row*M + receptive_col];
+	# 								out[receptive_row*M + receptive_col] = temp + error[index_row*((M-N+1)/2)+index_col+l]*filter[k*N+fil_col];
+				
+	# 								l += 1;
+	# 								//break;
+	# 							}
+	# 							fil_col += 1;
+	# 						}
+	# 						receptive_row += 1;
+							
+	# 					}
+	# 					//out[row*(M-N+1) + col] = temp;
+	# 				}				
+	# 			}
+
+	# 	    }
+	# 	"""
+
+	# 	kernelsource = """
+	# 		__kernel void converror(
+	# 	    __global double* error,
+	# 	    __global double* index,
+	# 	    __global double* filter,
+	# 	    __global double* out,
+	# 	    const unsigned int M,
+	# 	    const unsigned int N)
+	# 	    {
+	# 			int row = get_global_id(0);
+	# 	    	int col = get_global_id(1);
+
+	# 	    	int index_row;
+	# 	    	int index_col;
+	# 	    	int receptive_row;
+	# 	    	int receptive_col;
+	# 	    	int fil_col;
+	# 	    	int l;
+	# 	    	int k;
+	# 	    	double temp;
+
+	# 	    	if(row < (M-N+1))
+	# 			{
+	# 				if(col < (M-N+1))
+	# 				{
+	# 					//while(index_col < (M-N+1)/2)
+	# 					//{
+	# 						receptive_row = row;
+	# 						temp_col = col;
+							
+	# 						for(k=0;k<N;k++)
+	# 						{
+	# 							for(receptive_col=temp_col;receptive_col<N+col;receptive_col++)
+	# 							{
+	# 								if(receptive_row*M+receptive_col == (int)index[index_row*((M-N+1)/2)+index_col])
+	# 								{
+
+	# 								}
+	# 							}
+	# 						}
+
+	# 					//}
+	# 				}
+	# 			}
+
+	# 	    }
+	# 	"""
+
+
+
+	# 	context = cl.create_some_context()
+	# 	queue = cl.CommandQueue(context)
+	# 	program = cl.Program(context, kernelsource).build()
+
+	# 	main_order = shape[0] + forder -1
+	# 	m = main_order
+	# 	n = forder
+
+	# 	output = []
+
+	# 	for i in range(num1):
+	# 		h_c = filters[i]
+	# 		d_c = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_c)
+	# 		tempo = []
+	# 		for j in range(num2):
+
+	# 			h_a = error[i][j]
+	# 			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+	# 			h_b = index[i][j]
+	# 			d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+
+	# 			h_d = numpy.empty((main_order,main_order))
+	# 			d_d = cl.Buffer(context, cl.mem_flags.READ_WRITE, h_d.nbytes)
+
+	# 			converror = program.converror
+	# 			converror.set_scalar_arg_dtypes([None,None,None,None, numpy.uint32, numpy.uint32])
+
+	# 			converror(queue, h_d.shape, None, d_a, d_b, d_c, d_d, m, n)
+	# 			queue.finish()
+	# 			cl.enqueue_copy(queue, h_d, d_d)
+	# 			tempo.append(h_d)
+
+	# 		output.append(tempo)
+
+	# 	return output
+		
+
+
+
+	# @staticmethod
+	# def globalError(m, n, err):
+	# 	kernelsource = """
+	# 		__kernel void adderr(
+	# 	    __global double* a,
 	# 	    __global double* b,
-	# 	    __global double* c,
-	# 	    const unsigned int N,
-	# 	    float alpha)
+	# 	    const unsigned int M,
+	# 	    const unsigned int N)
 	# 	    {
 	# 	    	int i = get_global_id(0);
 	# 	    	int j = get_global_id(1);
 
-	# 	    	if(i<N)
+				
+	# 	    	if(i<M)
 	# 	    	{
-		    		
+	# 	    		if(j<N)
+	# 	    		{
+	# 	    			b[i] += a[i*N + j];
+	# 	    			barrier(CLK_GLOBAL_MEM_FENCE);
+	# 	    		}
+					
 	# 	    	}
 
 	# 	    }
@@ -577,33 +729,182 @@ class Procedures:
 	# 	queue = cl.CommandQueue(context)
 	# 	program = cl.Program(context, kernelsource).build()
 
+		
+	# 	h_a = err
+	# 	d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+	# 	h_b = numpy.zeros((m))
+	# 	d_b = cl.Buffer(context, cl.mem_flags.READ_WRITE, h_b.nbytes)
+
+	# 	adderr = program.adderr
+	# 	adderr.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
+	# 	adderr(queue, h_a.shape, None, d_a, d_b, m, n)
+	# 	queue.finish()
+	# 	cl.enqueue_copy(queue, h_b, d_b)
+
+	# 	return h_b
+
+	# @staticmethod
+	# def fill_zeros(index,error,num1,num2,m):
+	# 	kernelsource="""
+	# 		__kernel void zero(
+	# 	    __global double* index,
+	# 	    __global double* err,
+	# 	    __global double* out,
+	# 	    const unsigned int M)
+	# 	    {
+	# 	    	int i = get_global_id(0); 
+	# 	    	int j = get_global_id(1); 
+
+	# 			int l;
+
+	# 	    	if(i<M)
+	# 	    	{
+	# 	    		l=0;
+					
+	# 				if(j<M)
+	# 				{
+					
+	# 					if((int)index[(i/2)*(M/2) + j] == i*M+j)
+	# 					{
+	# 						//printf("-%d=%lf-",i*M+j,index[(i/2)*(M/2) + l]);
+	# 						out[i*M+j] = err[(i/2)*(M/2) + j];
+					
+	# 					}else{
+	# 						out[i*M+j] = 0;
+	# 					}
+	# 				}
+						
+				
+	# 	    	}
+	# 	    }
+	# 	"""
+	# 	context = cl.create_some_context()
+	# 	queue = cl.CommandQueue(context)
+	# 	program = cl.Program(context, kernelsource).build()
 
 
+	# 	output = []
 
+	# 	for i in range(num1):
+	# 		tempo = []
+	# 		for j in range(num2):
+
+	# 			h_a = index[i][j]
+	# 			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+	# 			h_b = error[i][j]
+	# 			d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+
+	# 			h_c = numpy.empty((m,m))
+	# 			d_c = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_c.nbytes)
+
+	# 			zero = program.zero
+	# 			zero.set_scalar_arg_dtypes([None,None,None, numpy.uint32])
+
+	# 			zero(queue, h_c.shape, None, d_a, d_b, d_c, m)
+	# 			queue.finish()
+	# 			cl.enqueue_copy(queue, h_c, d_c)
+	# 			tempo.append(h_c)
+
+	# 		output.append(tempo)
+
+	# 	return output
 
 	@staticmethod
-	def globalError(m, n, err):
+	def conv_global_error(error, filters, num1, num2, shape, forder):
 		kernelsource = """
-			__kernel void adderr(
-		    __global double* a,
-		    __global double* b,
+			__kernel void converror(
+		    __global double* error,
+		    __global double* filter,
+		    __global double* out,
 		    const unsigned int M,
 		    const unsigned int N)
 		    {
-		    	int i = get_global_id(0);
-		    	int j = get_global_id(1);
+				int row = get_global_id(0);
+		    	int col = get_global_id(1);
 
-				
-		    	if(i<M)
+		    	int k;
+		    	int l;
+		    	__local double temp;
+
+		    	if(row<(M-N+1) && col<(M-N+1))
 		    	{
-		    		if(j<N)
+		    		for(k=0;k<N;k++)
 		    		{
-		    			b[i] += a[i*N + j];
-		    			barrier(CLK_GLOBAL_MEM_FENCE);
+		    			for(l=0;l<N;l++)
+		    			{
+		    				//barrier(CLK_LOCAL_MEM_FENCE);
+
+		    				temp = out[(row+k)*M + (col+l)];
+		    				//barrier(CLK_LOCAL_MEM_FENCE);
+		    				out[(row+k)*M + (col+l)] =temp+ error[row*(M-N+1)+col]*filter[k*N+l]; 
+		    				barrier(CLK_GLOBAL_MEM_FENCE);
+		    				//printf("-%d=%d-",k,l);
+		    			}
 		    		}
-					
 		    	}
 
+		    	
+		    }
+		"""
+
+
+
+		context = cl.create_some_context()
+		queue = cl.CommandQueue(context)
+		program = cl.Program(context, kernelsource).build()
+
+		main_order = shape[0] + forder -1
+		m = main_order
+		n = forder
+
+		output = []
+
+		for i in range(num1):
+			h_c = filters[i]
+			d_c = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_c)
+			tempo = []
+			for j in range(num2):
+
+				h_a = error[i][j]
+				d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+				# h_b = index[i][j]
+				# d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
+				# print h_a
+				h_d = numpy.zeros((main_order,main_order))
+				d_d = cl.Buffer(context, cl.mem_flags.READ_WRITE, h_d.nbytes)
+
+				converror = program.converror
+				converror.set_scalar_arg_dtypes([None,None,None, numpy.uint32, numpy.uint32])
+
+				converror(queue, shape, None, d_a, d_c, d_d, m, n)
+				queue.finish()
+				cl.enqueue_copy(queue, h_d, d_d)
+				tempo.append(h_d)
+
+			output.append(tempo)
+
+		return output
+
+	@staticmethod
+	def depad(x, num, order, forder):
+		kernelsource = """
+			__kernel void nopad(
+		    __global double* A,
+		    __global double* B,
+		    const unsigned int M,
+		    const unsigned int N)
+		    {
+				int i = get_global_id(0);
+			    int j = get_global_id(1);
+				
+				if((i<M) && (j<M))
+				{
+					
+					if((j != 0) || (j != M-1) || (i != 0) || (i != M-1))
+					{
+						B[(i-1)*(M-N+1) + j-1] = A[i*M + j];
+					}		
+				}
 		    }
 		"""
 
@@ -611,19 +912,26 @@ class Procedures:
 		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
 
-		
-		h_a = err
-		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
-		h_b = numpy.zeros((m))
-		d_b = cl.Buffer(context, cl.mem_flags.READ_WRITE, h_b.nbytes)
+		nopad = program.nopad
+		nopad.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
 
-		adderr = program.adderr
-		adderr.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
-		adderr(queue, h_a.shape, None, d_a, d_b, m, n)
-		queue.finish()
-		cl.enqueue_copy(queue, h_b, d_b)
+		main_order = order - forder + 1
+		nopad=[]
+		for i in range(num):
+			
+			h_a = x[i]
+			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 
-		return h_b
+			h_b = numpy.empty((main_order,main_order))
+			d_b = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_b.nbytes)
+
+			# nopad = program.nopad
+			# nopad.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
+			nopad(queue, h_b.shape, None, d_a, d_b, order,forder)
+			queue.finish()
+			cl.enqueue_copy(queue, h_b, d_b)
+			nopad.append(h_b)
+		return nopad
 
 
 

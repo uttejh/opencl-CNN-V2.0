@@ -110,7 +110,7 @@ for iterat in range(1):
 	numinputs_pool1 = relu1_shape[0]
 	order_pool1 = relu1_shape[1]
 	
-	pool1 = p.pooling(relu1, numinputs_pool1, order_pool1)
+	pool1,index1 = p.pooling(relu1, numinputs_pool1, order_pool1)
 
 	pool_arr1 = array(pool1)
 	pool1_shape = pool_arr1.shape
@@ -167,7 +167,7 @@ for iterat in range(1):
 	numinputs_pool2 = relu2_shape[0]
 	order_pool2 = relu2_shape[1]
 	
-	pool2 = p.pooling(relu2, numinputs_pool2, order_pool2)
+	pool2,index2 = p.pooling(relu2, numinputs_pool2, order_pool2)
 
 	pool_arr2 = array(pool2)
 	pool2_shape = pool_arr2.shape
@@ -318,8 +318,8 @@ for iterat in range(1):
 		# global_error_FC.append(loc_err)
 		err_into_derivative.append(loc_err*(1.0 if FC[i] > 0 else 0.0))
 
-	
-	size_pool2 = pool2_shape[1]**2
+	pool2_len = pool2_shape[1]
+	size_pool2 = pool2_len**2
 	# tempnum = numOfFiltersLayer2*size_pool2
 	range2 = numOfFiltersLayer1*size_pool2
 	
@@ -336,13 +336,69 @@ for iterat in range(1):
 
 
 	# ---------------------- CONVOLUTION LAYER 1 <-- CONVOLUTION LAYER 2 --------------------
-	
+
+	# reshape errIntoDerivative
+	# 3920 = 40*20*7*7
+	err_into_der_reshape = numpy.reshape(err_into_derivative, (numOfFiltersLayer2,numOfFiltersLayer1,pool2_len*pool2_len))
+
+	# reshape index2. Same as above 
+	index2_reshape = numpy.reshape(index2,(numOfFiltersLayer2,numOfFiltersLayer1,pool2_len*pool2_len))
+
+	# print index2_reshape[0][0]
+	# find global error
+	# global_error_conv2 = p.conv_global_error(err_into_der_reshape, index2_reshape, filters2, numOfFiltersLayer2, numOfFiltersLayer1, (relu2_shape[2],relu2_shape[2]), fsize)
+
+	# print global_error_conv2[0][1][0]
+	# print global_error_conv2[1][1][0]
+	# print global_error_conv2[39][0][0]
+	# for i in range(20):
+	# 	print global_error_conv2[i][0][0]
+		# print index2_reshape[i][1][0]\
 
 
+	# d=[]
+	# for ii in range(numOfFiltersLayer2):
+	# 	for jj in range(numOfFiltersLayer1):
+	# 		for i in range(relu2_shape[2]+fsize-1):
+	# 			for j in range(relu2_shape[2]+fsize-1): 
+	# 				for k in range(fsize):
+	# 					for l in range(fsize):
+	# 						d.append(err_into_der_reshape[ii][jj])
+
+	# new_err_der = p.fill_zeros(index2_reshape, err_into_der_reshape, numOfFiltersLayer2, numOfFiltersLayer1, relu2_shape[2])
+	errdernew = []
+	for i in range(numOfFiltersLayer2):
+		tem1 = []
+		for j in range(numOfFiltersLayer1):
+			tomodify = numpy.zeros((pool2_len*pool2_len*4)).astype(numpy.float64)
+			index2_reshape[i][j].sort(axis=0)
+			# index2_reshape[i][j].sort(axis=1)
+
+			xx=index2_reshape[i][j].astype(int)
+			# yy=err_into_der_reshape[i][j].astype(numpy.float64)
+			yy=err_into_der_reshape[i][j]
+			for (ind, rep) in zip(xx, yy):
+				tomodify[ind] = rep
+			tem1.append(tomodify)
+			# print tomodify.astype(numpy.float64)
+		errdernew.append(tem1)
+	# print array(errdernew).dtype
+	# print array(index2_reshape).shape
+	errdernew = numpy.reshape(errdernew, (numOfFiltersLayer2,numOfFiltersLayer1,14,14))
+
+
+	global_error_conv2 = p.conv_global_error(errdernew, filters2, numOfFiltersLayer2, numOfFiltersLayer1, (relu2_shape[2],relu2_shape[2]), fsize)
+
+	global_error_conv2 = numpy.transpose(global_error_conv2,(1,2,3,0))
+
+	err_conv1_pad2 =  global_error_conv2.sum(axis=3)
+	err_conv1_pad2_shape = array(err_conv1_pad2).shape
+	print err_conv1_pad2[0][0]
+	conv1_depad = p.depad(err_conv1_pad2, numOfFiltersLayer1, err_conv1_pad2_shape[1] ,fsize)
+	print conv1_depad[0][0]
+	print err_conv1_pad2_shape
 	tt = time.clock() - start
 	print(tt)
-
-
 
 
 
