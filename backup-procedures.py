@@ -883,11 +883,6 @@ class Procedures:
 				converror(queue, shape, None, d_a, d_c, d_d, m, n)
 				queue.finish()
 				cl.enqueue_copy(queue, h_d, d_d)
-				# h_d = numpy.clip(h_d,-100.,100.)
-				# print h_d
-				h_d[numpy.isnan(h_d)] = 0.
-				h_d = numpy.clip(h_d,-1000.,1000.)
-				# print numpy.isnan(h_d).any()
 				tempo.append(h_d)
 
 			output.append(tempo)

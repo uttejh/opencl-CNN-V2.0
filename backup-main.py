@@ -4,7 +4,6 @@ import Image
 from procedures import *
 import time
 from numpy import array
-from sklearn.preprocessing import MinMaxScaler
 
 numpy.set_printoptions(threshold=numpy.nan)
 numOfFiltersLayer1 = 20
@@ -21,7 +20,7 @@ b2 = 1.
 bFC = 1.
 bH = 1.
 
-alpha = 0.1
+alpha = 0.01
 
 # Reads image and converts it to an array - our input
 def readImage(x):
@@ -48,7 +47,7 @@ filters1 = p.initFilters1(numOfFiltersLayer1, numOfInputs1, numOfOutputs1, fsize
 
 filters2 = p.initFilters2(numOfFiltersLayer2, numOfInputs2, numOfOutputs2, fsize)
 
-for iterat in range(20):
+for iterat in range(3):
 	start = time.clock()
 
 	# -------------------------------------- READ INPUT -------------------------------------------
@@ -211,13 +210,6 @@ for iterat in range(20):
 	
 	HL_WX_plus_b = numpy.dot(weights_FC_to_HL, FC) #+ bFC
 
-	minmax_scale = MinMaxScaler(feature_range=(-1, 1), copy=True)
-	# normalize
-	HL_WX_plus_b_shape = array(HL_WX_plus_b).shape
-	HL_WX_plus_b = array(HL_WX_plus_b).reshape(-1,1)
-	HL_WX_plus_b = minmax_scale.fit_transform(HL_WX_plus_b)
-	HL_WX_plus_b = numpy.reshape(HL_WX_plus_b,HL_WX_plus_b_shape)
-
 	# applying relu
 	HL_values = numpy.clip(HL_WX_plus_b,0.,float("inf"))
 
@@ -226,12 +218,14 @@ for iterat in range(20):
 
 	# ------------------------------------ Hidden Layer --> OUTPUT -------------------------------------
 
-	output_wx_plus_b = numpy.dot(weights_HL_to_output, HL_values) #+ bH
+	output_wx_plus_b = numpy.dot(weights_HL_to_output, HL_values) + bH
 
 	# applying relu 
 	output = numpy.clip(output_wx_plus_b,0.,float("inf"))
 
 	print output
+	# print filters1[0]
+	# print filters2[0]
 
 	# tt = time.clock() - tt
 	# print "H->O: " + str(tt)
@@ -251,26 +245,16 @@ for iterat in range(20):
 
 	# --------------------------------------------- ERROR ----------------------------------------------
 
-	# normalize
-	# minmax_scale = MinMaxScaler(feature_range=(-1, 1), copy=True)
+	# error = []
+	# label = 3
+	# for ii in range(numOfOutputNeurons):
+	# 	if ii == label:
+	# 		target = 1.0
+	# 	else:
+	# 		target = 0.0 
+	# 	error.append(0.5*(target - output[ii])**2)
 
-	error = []
-	label = 3
-	for i in range(numOfOutputNeurons):
-		label = 3
-		if i == label:
-			target = 1.0
-		else:
-			target = 0.0
-		# err = 0.5*(target - output[i])**2
-		error.append(target - output[i])
 
-	# normalize
-	error_shape = array(error).shape
-	error = array(error).reshape(-1,1)
-	error = minmax_scale.fit_transform(error)
-	error = numpy.reshape(error,error_shape)
-	
 	# ------------------------------------- HIDDEN LAYER <-- OUTPUT ------------------------------------
 
 	# Calculating errors for each weight (10*100 weights) at HL
@@ -282,25 +266,25 @@ for iterat in range(20):
 		# ---------------------------------------- ERROR -----------------------------------------------
 
 		# Dummy label
-		# label = 3
-		# if i == label:
-		# 	target = 1.0
-		# else:
-		# 	target = 0.0
-		# # err = 0.5*(target - output[i])**2
-		# err = (target - output[i])
+		label = 3
+		if i == label:
+			target = 1.0
+		else:
+			target = 0.0
+		# err = 0.5*(target - output[i])**2
+		err = (target - output[i])
 		derivative = 1.0 if output[i] > 0 else 0.0
 		# print err
 		temp = []
 		for j in range(numOfHiddenNeurons):
 
 			# E*f`(x)*w 
-			Dw_HL_to_output = (error[i]*derivative*weights_HL_to_output[i][j])
+			Dw_HL_to_output = (err*derivative*weights_HL_to_output[i][j])
 			# ommitted minus from E*f`(x)*w so that 
 			# [weights_HL_to_output = weights_HL_to_output - (-DW)] becomes
 			# [weights_HL_to_output = weights_HL_to_output + DW]
 			# change1
-			weights_HL_to_output[i][j] += alpha*error[i]*derivative*HL_values[j]
+			weights_HL_to_output[i][j] += alpha*err*derivative*HL_values[j]
 
 			# appending the omitted -ve sign
 			temp.append(-1*Dw_HL_to_output)
@@ -318,14 +302,6 @@ for iterat in range(20):
 			tempge += temp_err[j][i]
 		global_error.append(tempge)
 
-
-	# normalizing
-	global_error_shape = array(global_error).shape
-	global_error = array(global_error).reshape(-1,1)
-	global_error = minmax_scale.fit_transform(global_error)
-	global_error = numpy.reshape(global_error,global_error_shape)
-
-
 	# updated weights
 	weights_FC_to_HL, temp_FC_err = p.BP_FC_to_HL(numOfHiddenNeurons, n_in1, global_error, HL_values, weights_FC_to_HL, alpha, FC)
 
@@ -336,12 +312,6 @@ for iterat in range(20):
 	glob_err = []
 	for i in range(n_in1):
 		glob_err.append(numpy.sum(temp_FC_err[i]))
-
-	# normalizing
-	global_err_shape = array(glob_err).shape
-	glob_err = array(glob_err).reshape(-1,1)
-	glob_err = minmax_scale.fit_transform(glob_err)
-	glob_err = numpy.reshape(glob_err,global_err_shape)
 	
 
 	pool2_len = pool2_shape[1]
@@ -401,12 +371,6 @@ for iterat in range(20):
 	globerrintoderintox = numpy.reshape(globerrintoderintox,(numOfFiltersLayer2,numOfFiltersLayer1*pool2_len*pool2_len*4))
 	totalerr = numpy.sum(globerrintoderintox,axis=1)
 
-	# normalizing
-	totalerr_shape = array(totalerr).shape
-	totalerr = array(totalerr).reshape(-1,1)
-	totalerr = minmax_scale.fit_transform(totalerr)
-	totalerr = numpy.reshape(totalerr,totalerr_shape)
-
 	globerrintoderintow_c2=[]
 	for i in range(numOfFiltersLayer2):
 		filto2 = filters2[i]
@@ -415,13 +379,7 @@ for iterat in range(20):
 
 		globerrintoderintow_c2.append(globerrintoder[i]*(numpy.sum(filto2)))
 
-	# # normalizing
-	# globerrintoderintow_c2_shape = array(globerrintoderintow_c2).shape
-	# globerrintoderintow_c2 = array(globerrintoderintow_c2).reshape(-1,1)
-	# globerrintoderintow_c2 = minmax_scale.fit_transform(globerrintoderintow_c2)
-	# globerrintoderintow_c2 = numpy.reshape(globerrintoderintow_c2,globerrintoderintow_c2_shape)
 
-	# print globerrintoderintow_c2[0]
 	# ----------------- CONVOLUTION LAYER 1 <-- CONVOLUTION LAYER 2  --------------------------
 
 
@@ -429,18 +387,8 @@ for iterat in range(20):
 
 	global_error_conv2 = p.conv_global_error(globerrintoderreshape, filters2, numOfFiltersLayer2, numOfFiltersLayer1, (relu2_shape[2],relu2_shape[2]), fsize)
 
-	# global_error_conv2 = numpy.clip(global_error_conv2,-100.,100.)
-
 	global_error_conv2 = numpy.transpose(global_error_conv2,(1,2,3,0))
 	global_temp_sum = numpy.sum(global_error_conv2,axis=3)
-	# global_temp_sum = numpy.clip(global_temp_sum,-100.,100.)
-	# print global_temp_sum
-	# normalizing
-	global_temp_sum_shape = array(global_temp_sum).shape
-	global_temp_sum = array(global_temp_sum).reshape(-1,1)
-	global_temp_sum = minmax_scale.fit_transform(global_temp_sum)
-	global_temp_sum = numpy.reshape(global_temp_sum,global_temp_sum_shape)
-
 	ge_slice = global_temp_sum[:,1:-1,1:-1]
 
 	ge_slicereshape = numpy.reshape(ge_slice,(numOfFiltersLayer1,relu2_shape[2]*relu2_shape[2]))
@@ -478,19 +426,13 @@ for iterat in range(20):
 
 	totalerr_c1 = numpy.sum(globerrintoderx_c1,axis=1)
 
-	# normalizing
-	totalerr_c1_shape = array(totalerr_c1).shape
-	totalerr_c1 = array(totalerr_c1).reshape(-1,1)
-	totalerr_c1 = minmax_scale.fit_transform(totalerr_c1)
-	totalerr_c1 = numpy.reshape(totalerr_c1,totalerr_c1_shape)
-
 	for i in range(numOfFiltersLayer1):
 		filto1 = filters1[i]
 		# filters2 weight update
 		filters1[i] = filto1 - alpha*(totalerr_c1[i])
 
 
-	
+	print weights_HL_to_output[0]
 
 	tt = time.clock() - start
 	print(tt)
