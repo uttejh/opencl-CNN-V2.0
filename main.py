@@ -267,6 +267,8 @@ for iterat in range(20):
 		loss.append(0.5*e**2)
 		error.append(e)
 
+	totalloss = numpy.sum(loss)
+
 	# normalize
 	error_shape = array(error).shape
 	error = array(error).reshape(-1,1)
