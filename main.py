@@ -255,6 +255,7 @@ for iterat in range(20):
 	# minmax_scale = MinMaxScaler(feature_range=(-1, 1), copy=True)
 
 	error = []
+	loss = []
 	label = 3
 	for i in range(numOfOutputNeurons):
 		label = 3
@@ -262,8 +263,9 @@ for iterat in range(20):
 			target = 1.0
 		else:
 			target = 0.0
-		# err = 0.5*(target - output[i])**2
-		error.append(target - output[i])
+		e = (target - output[i])
+		loss.append(0.5*e**2)
+		error.append(e)
 
 	# normalize
 	error_shape = array(error).shape
