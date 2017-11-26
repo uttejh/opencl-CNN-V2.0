@@ -477,7 +477,7 @@ class Procedures:
 
 
 	@staticmethod
-	def BP_FC_to_HL(m, n, error, hl, w, alpha):
+	def BP_FC_to_HL(m, n, error, hl, w, alpha,fc):
 		kernelsource = """
 			__kernel void bp(
 		    __global double* a,
@@ -485,6 +485,7 @@ class Procedures:
 		    __global double* c,
 		    __global double* d,
 		    __global double* e,
+		    __global double* f,
 		    const unsigned int M,
 		    const unsigned int N,
 		    float alpha)
@@ -501,7 +502,7 @@ class Procedures:
 		    	{
 		    		err = a[i];
 		    		
-		    		if(b[i]<0)
+		    		if(b[i]<=0)
 					{
 						derivative = 0.0 ;
 					}else{
@@ -513,12 +514,12 @@ class Procedures:
 						
 						weight = c[i*M + j];
 						//E*f`(x)*w 
-						dw = err*derivative*weight;
+						dw = err*derivative;
 									
 						// -ve * -ve = +ve
-						d[i*N + j] = weight - alpha*dw ;
+						d[i*N + j] = weight - alpha*dw*f[j] ;
 
-						e[i*N + j] = dw;
+						e[i*N + j] = dw*weight;
 					}
 		    	}
 
@@ -542,10 +543,13 @@ class Procedures:
 		h_e = numpy.empty(h_c.shape)
 		d_e = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_e.nbytes)
 
-		bp = program.bp
-		bp.set_scalar_arg_dtypes([None,None,None,None,None, numpy.uint32, numpy.uint32, numpy.float32])
+		h_f = array(fc)
+		d_f = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_f)
 
-		bp(queue, h_c.shape, None, d_a, d_b, d_c, d_d, d_e, m, n, alpha)
+		bp = program.bp
+		bp.set_scalar_arg_dtypes([None,None,None,None,None,None, numpy.uint32, numpy.uint32, numpy.float32])
+
+		bp(queue, h_c.shape, None, d_a, d_b, d_c, d_d, d_e, d_f, m, n, alpha)
 		queue.finish()
 		cl.enqueue_copy(queue, h_d, d_d)
 		cl.enqueue_copy(queue, h_e, d_e)
@@ -879,59 +883,119 @@ class Procedures:
 				converror(queue, shape, None, d_a, d_c, d_d, m, n)
 				queue.finish()
 				cl.enqueue_copy(queue, h_d, d_d)
+				# h_d = numpy.clip(h_d,-100.,100.)
+				# print h_d
+				h_d[numpy.isnan(h_d)] = 0.
+				h_d = numpy.clip(h_d,-1000.,1000.)
+				# print numpy.isnan(h_d).any()
 				tempo.append(h_d)
 
 			output.append(tempo)
 
 		return output
 
+	# @staticmethod
+	# def depad(x, num, order, forder):
+	# 	kernelsource = """
+	# 		__kernel void nopad(
+	# 	    __global double* A,
+	# 	    __global double* B,
+	# 	    const unsigned int M,
+	# 	    const unsigned int N)
+	# 	    {
+	# 			int i = get_global_id(0);
+	# 		    int j = get_global_id(1);
+				
+	# 			if((i<M) && (j<M))
+	# 			{
+					
+	# 				if((j != 0) || (j != M-1) || (i != 0) || (i != M-1))
+	# 				{
+	# 					B[(i-1)*(M-1) + j-1] = A[i*M + j];
+	# 				}		
+	# 			}
+	# 	    }
+	# 	"""
+
+	# 	context = cl.create_some_context()
+	# 	queue = cl.CommandQueue(context)
+	# 	program = cl.Program(context, kernelsource).build()
+
+	# 	# nopad = program.nopad
+	# 	# nopad.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
+
+	# 	main_order = order - forder + 1
+	# 	out=[]
+	# 	for i in range(num):
+			
+	# 		h_a = x[i]
+	# 		d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+
+	# 		h_b = numpy.empty((order,order))
+	# 		d_b = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_b.nbytes)
+
+	# 		nopad = program.nopad
+	# 		nopad.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
+	# 		nopad(queue, h_b.shape, None, d_a, d_b, order,forder)
+	# 		queue.finish()
+	# 		cl.enqueue_copy(queue, h_b, d_b)
+	# 		out.append(h_b)
+	# 	return out
+
 	@staticmethod
-	def depad(x, num, order, forder):
+	def e_into_d(err, der, shape):
 		kernelsource = """
-			__kernel void nopad(
+			__kernel void ed(
 		    __global double* A,
 		    __global double* B,
-		    const unsigned int M,
-		    const unsigned int N)
+		    __global double* C,
+		    const unsigned int M)
 		    {
 				int i = get_global_id(0);
 			    int j = get_global_id(1);
-				
+
 				if((i<M) && (j<M))
 				{
-					
-					if((j != 0) || (j != M-1) || (i != 0) || (i != M-1))
+					if(B[i*j + M] > 0)
 					{
-						B[(i-1)*(M-N+1) + j-1] = A[i*M + j];
+						C[i*M + j] = A[i*M + j];
 					}		
+					else{
+						C[i*M + j] = 0;
+					}
 				}
 		    }
 		"""
-
 		context = cl.create_some_context()
 		queue = cl.CommandQueue(context)
 		program = cl.Program(context, kernelsource).build()
 
-		nopad = program.nopad
-		nopad.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
+		num = shape[0]
+		size = shape[1]
 
-		main_order = order - forder + 1
-		nopad=[]
+		ed = program.ed
+		# ed.set_scalar_arg_dtypes([None, None, None, numpy.uint32])
+		edout = []
+
 		for i in range(num):
-			
-			h_a = x[i]
+			h_a = err[i]
 			d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
 
-			h_b = numpy.empty((main_order,main_order))
-			d_b = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_b.nbytes)
+			h_b = der[i]
+			d_b = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_b)
 
-			# nopad = program.nopad
-			# nopad.set_scalar_arg_dtypes([None, None, numpy.uint32, numpy.uint32])
-			nopad(queue, h_b.shape, None, d_a, d_b, order,forder)
+			h_c = numpy.zeros(h_a.shape).astype(numpy.float64)
+			d_c = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_c.nbytes)
+			
+			ed.set_scalar_arg_dtypes([None, None, None, numpy.uint32])
+
+			ed(queue, h_a.shape, None, d_a, d_b, d_c, size)
 			queue.finish()
-			cl.enqueue_copy(queue, h_b, d_b)
-			nopad.append(h_b)
-		return nopad
+			cl.enqueue_copy(queue, h_c, d_c)
+			edout.append(h_c)
+
+		return edout
+
 
 
 

@@ -1,73 +1,51 @@
 import numpy
-from PIL import Image
+import pickle
 from numpy import array
-import pyopencl as cl 
-import os
-os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
-os.environ['PYOPENCL_CTX'] = '1'
-from procedures import *
-# def pad(x, order):
-# 	kernelsource = """
-# 	#include <string.h>
-# 	__kernel void pad(
-# 	__global const double* A,
-# 	__global double* B,
-# 	const unsigned int M)
-# 	{
-# 		char str[] = "fcba73";
-# 		char keys[] = "1234567890";
-# 		int i;
-# 		i = strstr(str,keys);
-# 		printf("The first number in str is at position %s",i);
-# 		//return 0;
-# 	}
-# 	"""
-# 	context = cl.create_some_context()
-# 	queue = cl.CommandQueue(context)
-# 	program = cl.Program(context, kernelsource).build()
+# import matplotlib.pyplot as plt
+# x=[]
+# for i in range(20):
+# 	x.append(i)
+# y = numpy.random.uniform(0,18,(20))
 
-# 	out_order = order + 2
+# fig = plt.figure()
+# ax1 = fig.add_subplot(1,1,1)
+# plt.xticks(numpy.arange(x.min(), 2000, 0.1))
+# ax1.clear()    #Remove this if you want to see distict colour graph at each interval.
+# ax1.set_xlim([0, 200]) #max and min value to X. Updates at each new instance.
+# ax1.set_ylim([0, 20]) # max and min value value to Y. Constant throughout.
+# ax1.plot(x,y)
+# plt.show
 
-# 	h_a = x
-# 	d_a = cl.Buffer(context, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=h_a)
+import matplotlib.pyplot as plt
 
-# 	h_b = numpy.empty((out_order,out_order))
-# 	d_b = cl.Buffer(context, cl.mem_flags.WRITE_ONLY, h_b.nbytes)
+# # plt.plot(x, y)
+# # plt.axis([0, 6, 0, 10])
+# # plt.show()
+f = open('./weights/totalloss.txt')
+y = pickle.load(f)
+f.close()
+x=numpy.arange(0,2000)
+# # x = [0,5,9,10,15]
+# # y = [0,1,2,3,4]
+# plt.plot(x,y)
+# plt.xticks(numpy.arange(min(x), max(x)+2, 10.0))
+# plt.show()
+# x=numpy.arange(0,19,1.0)
+# print x
+re_y = []
+for i in range(2000):
+	# for j in range(10):
+	re_y.append(numpy.sum(y[i:i+10]))
 
-# 	pad = program.pad
-# 	pad.set_scalar_arg_dtypes([None, None, numpy.uint32])
 
-# 	pad(queue, h_b.shape, None, d_a, d_b, out_order)
-# 	queue.finish()
-# 	cl.enqueue_copy(queue, h_b, d_b)
 
-# 	return h_b
+y=array(re_y).ravel()
+# y=re_y[::-1]
+plt.plot(x,y)
+plt.xticks(numpy.arange(min(x), max(x)+2, 200.0))
+plt.title('Loss VS Epochs',fontsize=18)
+plt.xlabel('Epoch', fontsize=14)
+plt.ylabel('Loss',fontsize=14)
 
-# arr = numpy.random.rand(3,3)
-# pad(arr,3)
-# image = Image.open('1.jpg')
-
-# data = numpy.array(image,dtype="double")
-
-# # print pad(arr,3)
-# print pad(data,data.shape[0])
-# # print data.dtype
-
-# x = [1,2,3,4,5,6,7,8,9]
-# y = [3,8,1]
-
-# c = index for x[index] in y
-# print c
-# map(a.__getitem__, b)
-p=Procedures()
-x= numpy.random.rand(40,20,7,7).astype(numpy.float64)
-y=numpy.random.rand(40,20,7,7).astype(numpy.float64)
-
-z=numpy.random.rand(40,3,3).astype(numpy.float64)
-a = numpy.random.rand(3,3,3)
-print a
-a.sort(axis=0)
-a.sort(axis=1)
-a.sort(axis=2)
-
-print a
+plt.show()
+# print y
