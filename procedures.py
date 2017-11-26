@@ -3,7 +3,7 @@ import pyopencl as cl
 import os
 from numpy import array
 os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
-os.environ['PYOPENCL_CTX'] = '1'
+# os.environ['PYOPENCL_CTX'] = '1'
 
 from numpy import array 
 # Creating a dictionary

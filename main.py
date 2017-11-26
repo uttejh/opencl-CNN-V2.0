@@ -25,11 +25,13 @@ bhl = 0.5
 
 alpha = 0.1
 
-epochs = 2000
+epochs = 10
+
+target = [0.,0.],[0.,1.],[1.,0.],[1.,1.]
 
 def readAllImages():
 	data = []
-	for i in range(10):
+	for i in range(4):
 		name = './dataset/'+str(i)+'.jpg'
 		image = Image.open(name)
 
@@ -65,7 +67,7 @@ filters1 = p.initFilters1(numOfFiltersLayer1, numOfInputs1, numOfOutputs1, fsize
 
 filters2 = p.initFilters2(numOfFiltersLayer2, numOfInputs2, numOfOutputs2, fsize)
 
-start = time.clock()
+start = time.time()
 totalloss=[]
 for iterat_epoch in range(epochs):
 	print 'Running epoch: ' + str(iterat_epoch) + ' ....'
@@ -75,7 +77,7 @@ for iterat_epoch in range(epochs):
 		print 'Output at epoch '+str(iterat_epoch)+' is:'
 		print '###############################################'
 
-	for iterat_image in range(10):
+	for iterat_image in range(4):
 		# -------------------------------------- READ INPUT -------------------------------------------
 
 		input_data = imagedata[iterat_image]
@@ -222,7 +224,7 @@ for iterat_epoch in range(epochs):
 		# time than a GPU function
 		if iterat_epoch == 0 and iterat_image == 0:
 			numOfHiddenNeurons = 100
-			numOfOutputNeurons = 10
+			numOfOutputNeurons = 2
 
 			n_in1 = FC.shape[0]
 			n_out1 = numOfHiddenNeurons
@@ -257,10 +259,10 @@ for iterat_epoch in range(epochs):
 		output = numpy.clip(output_wx_plus_b,0.,float("inf"))
 
 		if iterat_epoch%100 == 0:
-			print '---------------------------------------------------------------------------------------'
+			print '---------------------------------------------------------'
 			print 'Output for image '+str(iterat_image)+' is:'
 			print output
-			print '---------------------------------------------------------------------------------------'
+			print '---------------------------------------------------------'
 
 		# tt = time.clock() - tt
 		# print "H->O: " + str(tt)
@@ -286,14 +288,19 @@ for iterat_epoch in range(epochs):
 		error = []
 		loss = []
 		label = iterat_image
-		for i in range(numOfOutputNeurons):
-			if i == label:
-				target = 1.0
-			else:
-				target = 0.0
-			e = (target - output[i])
-			loss.append(0.5*e**2)
-			error.append(e)
+
+		
+		error = target[iterat_image]-output
+
+		loss = 0.5*error**2
+		# for i in range(numOfOutputNeurons):
+		# 	# if i == label:
+		# 	# 	target = 1.0
+		# 	# else:
+		# 	# 	target = 0.0
+		# 	e = (target - output[i])
+		# 	loss.append(0.5*e**2)
+		# 	error.append(e)
 
 		totalloss.append(numpy.sum(loss))
 
@@ -554,7 +561,7 @@ for iterat_epoch in range(epochs):
 
 	
 
-tt = time.clock() - start
+tt = time.time() - start
 hours = tt/(3600)
 print '###################################################################'
 print 'Total Time elapsed in training the system is '+str(hours)+' Hours!'
@@ -599,9 +606,9 @@ file_totalloss.close()
 
 print 'Write Successful!'
 print 'Plotting Graph...'
-graphX = numpy.arange(0,20000)
+graphX = numpy.arange(0,epochs*4)
 graphY = array(totalloss).ravel()
 plt.plot(graphX,graphY)
-plt.xticks(numpy.arange(min(graphX), max(graphX)+2, 10.0))
+plt.xticks(numpy.arange(min(graphX), max(graphX)+2, 2000.0))
 plt.show()
 
